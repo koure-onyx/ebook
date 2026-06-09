@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { signOut } from '../../lib/api/auth';
 import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { SearchInput } from '@/components/SearchInput';

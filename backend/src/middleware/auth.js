@@ -14,8 +14,8 @@ function extractToken(req) {
 
   // Check cookies
   const cookies = req.cookies;
-  if (cookies && cookies.accessToken) {
-    return cookies.accessToken;
+  if (cookies && cookies.sv_token) {
+    return cookies.sv_token;
   }
 
   return null;

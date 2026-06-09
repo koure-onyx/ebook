@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { useSession } from "next-auth/react";
+import { useSession } from "../../lib/api/auth";
 import {
   Home,
   BookOpen,

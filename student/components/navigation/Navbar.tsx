@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { useSession, signOut } from "next-auth/react";
+import { useSession, signOut } from "../../lib/api/auth";
 import {
   BookOpen,
   Search,

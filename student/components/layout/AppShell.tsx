@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "../../lib/api/auth";
 import { motion, AnimatePresence } from "framer-motion";
 import { LoadingProvider } from "./LoadingProvider";
 import { Navbar } from "../navigation/Navbar";

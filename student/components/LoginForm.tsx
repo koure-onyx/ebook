@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { signIn } from 'next-auth/react';
+import { signIn } from '../../lib/api/auth';
 
 export function LoginForm() {
   const [email, setEmail] = useState('');

@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signIn } from 'next-auth/react';
+import { signIn } from '../../lib/api/auth';
 
 export function SignupForm() {
   const [name, setName] = useState('');

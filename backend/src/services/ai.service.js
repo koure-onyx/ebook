@@ -3,6 +3,35 @@ import OpenAI from 'openai';
 import { env } from '../config/env.js';
 
 /**
+ * AI Prompts from source monorepo - exact copy
+ */
+export const PROMPTS = {
+  EXPLAIN: (title, rawText) => ({
+    systemPrompt: `You are a friendly Pakistani board exam tutor. Explain topics in simple English
+that a Grade 9 student can understand. Use everyday Pakistani examples where helpful.
+Keep explanations under 150 words. Write in clear paragraphs, no bullet points.`,
+    userPrompt: `Explain this topic simply:\n\nTopic: ${title}\n\nContent:\n${rawText.slice(0, 3000)}`,
+  }),
+
+  GENERATE_MCQS: (title, rawText, count = 5) => ({
+    systemPrompt: `You are a Pakistani board exam question writer. Generate MCQs in the style of
+Lahore Board and FBISE. Output ONLY a JSON array, no other text, no markdown.`,
+    userPrompt: `Generate ${count} MCQs for this topic. Each must have 4 options (a,b,c,d), one correct answer, and a brief explanation.
+
+Topic: ${title}
+Content: ${rawText.slice(0, 3000)}
+
+Output (JSON array only):
+[{"question":"...","options":["(a)...","(b)...","(c)...","(d)..."],"correct_answer":"b","explanation":"..."}]`,
+  }),
+
+  GENERATE_FLASHCARDS: (title, rawText, count = 5) => ({
+    systemPrompt: `Create concise study flashcards for exam revision. Output ONLY a JSON array.`,
+    userPrompt: `Create ${count} flashcards for: ${title}\n\nContent: ${rawText.slice(0, 2000)}\n\nOutput: [{"front":"...","back":"..."}]`,
+  }),
+};
+
+/**
  * Get AI provider instance based on configuration
  */
 export function getAIProvider() {
@@ -19,43 +48,115 @@ export function getAIProvider() {
 }
 
 /**
- * Generate explanation for a topic with streaming support
+ * Generate explanation for a topic using source prompts
  */
 export async function generateExplanation(topic, options = {}) {
   const { stream = false, onChunk } = options;
   const provider = getAIProvider();
-
-  const prompt = `You are an expert educational assistant for Pakistani students. 
-Explain the following topic clearly and concisely, using examples relevant to Pakistani curriculum.
-
-Topic: ${topic.title}
-Subject: ${topic.subject || 'General'}
-Class Level: ${topic.classLevel || 'General'}
-
-Content context: ${topic.content?.substring(0, 500) || 'No additional content'}
-
-Provide a clear, structured explanation that helps students understand this topic.`;
-
+  
+  // Use source prompt structure
+  const promptData = PROMPTS.EXPLAIN(topic.title, topic.content || topic.rawText || '');
+  
   if (stream && onChunk) {
-    return streamExplanation(prompt, onChunk, provider);
+    return streamExplanation(promptData.userPrompt, onChunk, provider);
   }
 
   if (provider instanceof GoogleGenerativeAI) {
     const model = provider.getGenerativeModel({ model: 'gemini-pro' });
-    const result = await model.generateContent(prompt);
+    const result = await model.generateContent(promptData.userPrompt);
     const response = await result.response;
     return response.text();
   } else {
     const completion = await provider.chat.completions.create({
       model: 'gpt-3.5-turbo',
-      messages: [{ role: 'user', content: prompt }]
+      messages: [
+        { role: 'system', content: promptData.systemPrompt },
+        { role: 'user', content: promptData.userPrompt }
+      ]
     });
     return completion.choices[0].message.content;
   }
 }
 
 /**
- * Stream AI response as SSE chunks
+ * Generate MCQs using source prompts
+ */
+export async function generateMCQs(topic, count = 5) {
+  const provider = getAIProvider();
+  const promptData = PROMPTS.GENERATE_MCQS(topic.title, topic.content || topic.rawText || '', count);
+  
+  if (provider instanceof GoogleGenerativeAI) {
+    const model = provider.getGenerativeModel({ model: 'gemini-pro' });
+    const result = await model.generateContent(promptData.userPrompt);
+    const response = await result.response;
+    const text = response.text();
+    // Parse JSON from response
+    try {
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+    } catch (e) {
+      console.error('Failed to parse MCQ JSON:', e);
+    }
+    return [];
+  } else {
+    const completion = await provider.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: promptData.systemPrompt },
+        { role: 'user', content: promptData.userPrompt }
+      ],
+      response_format: { type: 'json_object' }
+    });
+    try {
+      return JSON.parse(completion.choices[0].message.content);
+    } catch (e) {
+      return [];
+    }
+  }
+}
+
+/**
+ * Generate flashcards using source prompts
+ */
+export async function generateFlashcards(topic, count = 5) {
+  const provider = getAIProvider();
+  const promptData = PROMPTS.GENERATE_FLASHCARDS(topic.title, topic.content || topic.rawText || '', count);
+  
+  if (provider instanceof GoogleGenerativeAI) {
+    const model = provider.getGenerativeModel({ model: 'gemini-pro' });
+    const result = await model.generateContent(promptData.userPrompt);
+    const response = await result.response;
+    const text = response.text();
+    try {
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+    } catch (e) {
+      console.error('Failed to parse flashcard JSON:', e);
+    }
+    return [];
+  } else {
+    const completion = await provider.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: promptData.systemPrompt },
+        { role: 'user', content: promptData.userPrompt }
+      ],
+      response_format: { type: 'json_object' }
+    });
+    try {
+      return JSON.parse(completion.choices[0].message.content);
+    } catch (e) {
+      return [];
+    }
+  }
+}
+
+/**
+ * Stream explanation via SSE
  */
 async function streamExplanation(prompt, onChunk, provider) {
   if (provider instanceof GoogleGenerativeAI) {
@@ -64,128 +165,25 @@ async function streamExplanation(prompt, onChunk, provider) {
     
     for await (const chunk of result.stream) {
       const text = chunk.text();
-      if (text) {
+      if (text && onChunk) {
         onChunk(text);
       }
     }
   } else {
     const stream = await provider.chat.completions.create({
       model: 'gpt-3.5-turbo',
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        { role: 'system', content: 'You are a friendly Pakistani board exam tutor.' },
+        { role: 'user', content: prompt }
+      ],
       stream: true
     });
     
     for await (const chunk of stream) {
       const text = chunk.choices[0]?.delta?.content || '';
-      if (text) {
+      if (text && onChunk) {
         onChunk(text);
       }
     }
   }
-}
-
-/**
- * Generate quiz questions from topic content
- */
-export async function generateQuizQuestions(topic, count = 5) {
-  const provider = getAIProvider();
-
-  const prompt = `Generate ${count} multiple-choice quiz questions based on this topic:
-
-Topic: ${topic.title}
-Content: ${topic.content?.substring(0, 1000) || 'No content available'}
-
-For each question, provide:
-1. The question text
-2. Four options (A, B, C, D)
-3. The correct answer (just the letter)
-
-Format as JSON array like:
-[
-  {
-    "questionText": "...",
-    "options": ["A) ...", "B) ...", "C) ...", "D) ..."],
-    "correctAnswer": "A"
-  }
-]`;
-
-  if (provider instanceof GoogleGenerativeAI) {
-    const model = provider.getGenerativeModel({ model: 'gemini-pro' });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    return parseJSONResponse(text);
-  } else {
-    const completion = await provider.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [{ role: 'user', content: prompt }]
-    });
-    const text = completion.choices[0].message.content;
-    return parseJSONResponse(text);
-  }
-}
-
-/**
- * Generate flashcards from topic content
- */
-export async function generateFlashcards(topic, count = 10) {
-  const provider = getAIProvider();
-
-  const prompt = `Generate ${count} flashcards for studying this topic:
-
-Topic: ${topic.title}
-Content: ${topic.content?.substring(0, 1000) || 'No content available'}
-
-Each flashcard should have:
-1. A front (question/term)
-2. A back (answer/definition)
-
-Format as JSON array like:
-[
-  {
-    "front": "...",
-    "back": "..."
-  }
-]`;
-
-  if (provider instanceof GoogleGenerativeAI) {
-    const model = provider.getGenerativeModel({ model: 'gemini-pro' });
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-    return parseJSONResponse(text);
-  } else {
-    const completion = await provider.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [{ role: 'user', content: prompt }]
-    });
-    const text = completion.choices[0].message.content;
-    return parseJSONResponse(text);
-  }
-}
-
-/**
- * Parse JSON from AI response (handles markdown code blocks)
- */
-function parseJSONResponse(text) {
-  try {
-    // Remove markdown code blocks if present
-    const cleaned = text.replace(/```json\s*|\s*```/g, '').trim();
-    return JSON.parse(cleaned);
-  } catch (err) {
-    console.error('Failed to parse AI JSON response:', err);
-    return [];
-  }
-}
-
-/**
- * Check AI credits/usage (placeholder for future implementation)
- */
-export async function checkAICredits(userId) {
-  // TODO: Implement credit tracking
-  return {
-    remaining: 100,
-    used: 0,
-    limit: 100
-  };
 }

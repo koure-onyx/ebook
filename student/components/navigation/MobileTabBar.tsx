@@ -16,7 +16,7 @@ import {
   LogOut,
   X,
 } from "lucide-react";
-import { useSession, signOut } from "next-auth/react";
+import { useSession, signOut } from "../../lib/api/auth";
 
 interface MobileTabBarProps {
   userXP?: number;
