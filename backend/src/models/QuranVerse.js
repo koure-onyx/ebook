@@ -1,24 +1,11 @@
 import mongoose from 'mongoose';
 
-const quranVerseSchema = new mongoose.Schema({
-  surah: {
-    type: Number,
-    required: true
-  },
-  ayah: {
-    type: Number,
-    required: true
-  },
-  arabicText: {
-    type: String,
-    required: true
-  },
-  translation: String,
-  transliteration: String
-}, {
-  timestamps: true
-});
+const QuranVerseSchema = new mongoose.Schema({
+  surah: { type: Number, required: true, min: 1, max: 114 },
+  ayah: { type: Number, required: true },
+  text_uthmani: { type: String, required: true },
+}, { timestamps: false });
 
-quranVerseSchema.index({ surah: 1, ayah: 1 }, { unique: true });
+QuranVerseSchema.index({ surah: 1, ayah: 1 }, { unique: true });
 
-export const QuranVerse = mongoose.model('QuranVerse', quranVerseSchema);
+export const QuranVerse = mongoose.models.QuranVerse || mongoose.model('QuranVerse', QuranVerseSchema);

@@ -1,43 +1,35 @@
 import mongoose from 'mongoose';
 
-const userProgressSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  topic: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Topic',
-    required: true
-  },
-  isCompleted: {
-    type: Boolean,
-    default: false
-  },
-  completedAt: Date,
-  lastViewedAt: Date,
-  timeSpent: {
-    type: Number,
-    default: 0
-  },
-  quizAttempts: [{
-    quiz: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Quiz'
-    },
-    score: Number,
-    passed: Boolean,
-    attemptedAt: {
-      type: Date,
-      default: Date.now
-    }
-  }]
-}, {
-  timestamps: true
-});
+const UserProgressSchema = new mongoose.Schema({
+  user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  topic_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Topic', required: true },
+  chapter_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Chapter' },
+  book_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Book' },
+  program_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Program' },
 
-userProgressSchema.index({ user: 1, topic: 1 }, { unique: true });
-userProgressSchema.index({ user: 1, isCompleted: 1 });
+  is_read: { type: Boolean, default: false },
+  scroll_depth_percent: { type: Number, default: 0 },
+  time_spent_seconds: { type: Number, default: 0 },
 
-export const UserProgress = mongoose.model('UserProgress', userProgressSchema);
+  quiz_attempts: { type: Number, default: 0 },
+  highest_quiz_score: { type: Number, default: 0 },
+  last_quiz_score: { type: Number, default: 0 },
+  mastery_status: {
+    type: String,
+    enum: ['locked', 'in_progress', 'mastered'],
+    default: 'locked',
+  },
+
+  // 70% quiz + 30% reading
+  progress_percent: { type: Number, default: 0 },
+  xp_earned: { type: Number, default: 0 },
+  last_accessed: { type: Date, default: Date.now },
+}, { timestamps: true });
+
+UserProgressSchema.index({ user_id: 1, topic_id: 1 }, { unique: true });
+UserProgressSchema.index({ user_id: 1, program_id: 1 });
+UserProgressSchema.index({ user_id: 1, mastery_status: 1 });
+UserProgressSchema.index({ user_id: 1, chapter_id: 1 });
+UserProgressSchema.index({ user_id: 1, book_id: 1 });
+
+export const UserProgress = mongoose.models.UserProgress || mongoose.model('UserProgress', UserProgressSchema);

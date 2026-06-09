@@ -1,19 +1,15 @@
 import mongoose from 'mongoose';
 
-const quranWordSchema = new mongoose.Schema({
-  verse: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'QuranVerse',
-    required: true
-  },
-  wordNumber: Number,
-  arabicWord: String,
-  translation: String,
-  transliteration: String
-}, {
-  timestamps: true
-});
+const QuranWordSchema = new mongoose.Schema({
+  surah: { type: Number, required: true, min: 1, max: 114 },
+  ayah: { type: Number, required: true },
+  word_position: { type: Number, required: true },
+  arabic_word: { type: String, required: true },
+  root_word: String,
+  transliteration: String,
+  global_urdu_meaning: String,
+}, { timestamps: false });
 
-quranWordSchema.index({ verse: 1, wordNumber: 1 });
+QuranWordSchema.index({ surah: 1, ayah: 1, word_position: 1 }, { unique: true });
 
-export const QuranWord = mongoose.model('QuranWord', quranWordSchema);
+export const QuranWord = mongoose.models.QuranWord || mongoose.model('QuranWord', QuranWordSchema);
