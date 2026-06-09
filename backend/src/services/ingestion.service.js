@@ -1,7 +1,7 @@
 import { Book } from '../models/Book.js';
 import { Chapter } from '../models/Chapter.js';
 import { Topic } from '../models/Topic.js';
-import { createSlug } from '../utils/slug.js';
+import { generateSlug } from '../utils/slug.js';
 
 /**
  * Ingest a complete book with chapters and topics
@@ -10,7 +10,7 @@ export async function ingestBook(bookData) {
   const { title, subject, classLevel, board, program, chapters, ...rest } = bookData;
 
   // Find or create book
-  const slug = createSlug(title);
+  const slug = generateSlug(title);
   let book = await Book.findOne({ slug });
 
   if (!book) {

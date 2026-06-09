@@ -1,7 +1,7 @@
 import { Book } from '../models/Book.js';
 import { Chapter } from '../models/Chapter.js';
 import { Topic } from '../models/Topic.js';
-import { createSlug } from '../utils/slug.js';
+import { generateSlug } from '../utils/slug.js';
 
 /**
  * Get all books with optional filters
@@ -60,7 +60,7 @@ export async function getBookBySlug(slug) {
  * Create a new book
  */
 export async function createBook(bookData) {
-  const slug = bookData.slug || createSlug(bookData.title);
+  const slug = bookData.slug || generateSlug(bookData.title);
   
   const existingBook = await Book.findOne({ slug });
   if (existingBook) {

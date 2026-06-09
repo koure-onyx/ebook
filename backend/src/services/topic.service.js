@@ -1,5 +1,8 @@
 import { Topic } from '../models/Topic.js';
 import { Chapter } from '../models/Chapter.js';
+import { Book } from '../models/Book.js';
+import { Board } from '../models/Board.js';
+import { Program } from '../models/Program.js';
 import { UserProgress } from '../models/UserProgress.js';
 import { generateUniqueSlug } from '../utils/slug.js';
 import { renderContentBlock, validateContentBlock } from '../utils/contentBlocks.js';
@@ -42,7 +45,7 @@ export const getTopicBySlug = async (boardSlug, programSlug, subjectSlug, chapte
     book: { $in: await Book.find({ 
       board: { $in: await Board.find({ slug: boardSlug }).distinct('_id') },
       program: { $in: await Program.find({ slug: programSlug, subject: subjectSlug }).distinct('_id') }
-    }).distinct('_id')] 
+    }).distinct('_id') }
   });
   
   if (!chapter) return null;

@@ -22,12 +22,12 @@ if (!process.env.MONGODB_URI) {
 
 // Import App & Models
 import app from './src/app.js';
-import User from './src/models/User.js';
-import Book from './src/models/Book.js';
-import Chapter from './src/models/Chapter.js';
-import Topic from './src/models/Topic.js';
-import Board from './src/models/Board.js';
-import Program from './src/models/Program.js';
+import { User } from './src/models/User.js';
+import { Book } from './src/models/Book.js';
+import { Chapter } from './src/models/Chapter.js';
+import { Topic } from './src/models/Topic.js';
+import { Board } from './src/models/Board.js';
+import { Program } from './src/models/Program.js';
 
 // Configuration
 const PORT = 4000;
@@ -81,7 +81,7 @@ const runTests = async () => {
   try {
     // 0. SETUP
     log('\n🚀 STARTING INTEGRATION TESTS...', 'info');
-    
+
     await mongoose.connect(process.env.MONGODB_URI);
     log('✅ Connected to MongoDB', 'success');
 
@@ -234,11 +234,11 @@ const runTests = async () => {
         content_blocks: [
           { type: 'text_block', content: 'The SI system consists of 7 base units.' },
           { type: 'formula', latex: 'F = ma', explanation: 'Newton second law' },
-          { 
-            type: 'multiple_choice_question', 
-            question: 'How many base units?', 
-            options: ['5', '6', '7', '8'], 
-            correct_index: 2 
+          {
+            type: 'multiple_choice_question',
+            question: 'How many base units?',
+            options: ['5', '6', '7', '8'],
+            correct_index: 2
           }
         ],
         ai_cache: {
@@ -313,11 +313,11 @@ const runTests = async () => {
         body: JSON.stringify({ email: 'login@test.com', password: 'testpass' })
       });
       const data = await res.json();
-      
+
       if (res.status !== 200) {
         log(`   Response: ${JSON.stringify(data)}`, 'warn');
       }
-      
+
       assert(res.status === 200, `Expected 200, got ${res.status}`);
       assert(data.success === true, 'Success flag missing');
       assert(data.data.token || data.data.accessToken, 'Token missing in response');
@@ -370,20 +370,20 @@ const runTests = async () => {
       const slugModule = await import('./src/utils/slug.js');
       const base = 'test-slug';
       const s1 = await slugModule.generateUniqueSlug(Topic, base);
-      await Topic.create({ 
-        chapter: testChapterId, 
+      await Topic.create({
+        chapter: testChapterId,
         chapter_id: testChapterId,
         book: testBookId,
         book_id: testBookId,
         program: testProgramId,
         program_id: testProgramId,
-        title: 'Dup', 
-        slug: s1, 
+        title: 'Dup',
+        slug: s1,
         edition_year: 2024,
         display_order: 999,
         clean_html: '<p>Dup</p>',
         raw_text: 'Dup',
-        content_blocks: [] 
+        content_blocks: []
       });
       const s2 = await slugModule.generateUniqueSlug(Topic, base);
       assert(s1 !== s2, 'Slug generator failed to add suffix');
@@ -392,11 +392,11 @@ const runTests = async () => {
 
     await test('Progress Calculation Utility', async () => {
       const progressModule = await import('./src/utils/progress.js');
-      const mastery = progressModule.calculateMastery ? 
+      const mastery = progressModule.calculateMastery ?
         progressModule.calculateMastery({ topics_mastered: 5, total_topics: 10 }) :
-        progressModule.calculateProgress ? 
-        progressModule.calculateProgress({ topics_mastered: 5, total_topics: 10 }) :
-        50;
+        progressModule.calculateProgress ?
+          progressModule.calculateProgress({ topics_mastered: 5, total_topics: 10 }) :
+          50;
       assert(typeof mastery === 'number', 'Mastery calculation should return number');
     });
 
