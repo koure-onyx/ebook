@@ -1,6 +1,5 @@
 import { success, error } from '../utils/apiResponse.js';
 import * as bookService from '../services/book.service.js';
-import { requireAuth } from '../middleware/auth.js';
 
 /**
  * GET /books - Get all books with user-aware filtering
@@ -10,19 +9,9 @@ import { requireAuth } from '../middleware/auth.js';
 export async function getBooks(req, res, next) {
   try {
     const { boardId, programId, classLevel, subject, grade, editionYear } = req.query;
-    
-    // Check if user is authenticated (requireAuth sets req.user if valid)
-    // We use a try-catch to optionally get user without forcing auth
-    let user = null;
-    try {
-      const authResult = await requireAuth(req, res, () => {});
-      if (req.user) {
-        user = req.user;
-      }
-    } catch (e) {
-      // User not authenticated, that's okay - proceed with public filtering
-      user = null;
-    }
+
+    // optionalAuth middleware already set req.user if authenticated
+    const user = req.user || null;
 
     const additionalFilters = { boardId, programId, classLevel, subject, grade, editionYear };
     const books = await bookService.getBooksForUser(user, additionalFilters);
@@ -84,7 +73,7 @@ export async function getBookChapters(req, res, next) {
 export async function createBook(req, res, next) {
   try {
     const bookData = req.body;
-    
+
     // Validate required fields
     if (!bookData.title || !bookData.subject_slug) {
       return res.status(400).json(error('Title and subject_slug are required', 'VALIDATION_ERROR'));
@@ -107,7 +96,7 @@ export async function updateBook(req, res, next) {
   try {
     const { id } = req.params;
     const updateData = req.body;
-    
+
     const book = await bookService.updateBook(id, updateData);
     res.json(success(book, 'Book updated successfully'));
   } catch (err) {
