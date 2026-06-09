@@ -1,0 +1,35 @@
+{
+  "name": "@studyvault/student",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.38.0",
+    "katex": "^0.16.47",
+    "lucide-react": "^1.16.0",
+    "next": "16.2.7",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "swr": "^2.4.1",
+    "tailwind-merge": "^3.6.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/katex": "^0.16.8",
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.0.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.4.0"
+  }
+}

@@ -1,0 +1,98 @@
+/* ─── Quran Font Face (local preloaded via next/font, this is the CSS fallback) ─── */
+@font-face {
+  font-family: 'UthmanicHafs';
+  src: url('/fonts/quran/UthmanicHafs1Ver18.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+  font-display: block;
+}
+
+/* ─── Main Quran Arabic Text ─── */
+.quran-arabic {
+  font-family:
+    var(--font-quran),
+    'UthmanicHafs',
+    'KingFahdQuran',
+    serif;
+
+  direction: rtl;
+  text-align: right;
+  unicode-bidi: plaintext;
+  text-rendering: optimizeLegibility;
+
+  font-feature-settings:
+    "kern" 1,
+    "liga" 1,
+    "clig" 1,
+    "calt" 1,
+    "ccmp" 1,
+    "rlig" 1;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  white-space: normal;
+  overflow-wrap: break-word;
+
+  line-height: 3.25;
+  letter-spacing: 0;
+  word-spacing: normal;
+  font-synthesis: none;
+  overflow: visible;
+}
+
+/* ─── Responsive Font Sizes ─── */
+.quran-arabic-sm {
+  font-size: 1.25rem;
+}
+
+.quran-arabic-md {
+  font-size: 1.65rem;
+}
+
+.quran-arabic-lg {
+  font-size: 2rem;
+}
+
+@media (min-width: 768px) {
+  .quran-arabic-sm {
+    font-size: 1.75rem;
+  }
+
+  .quran-arabic-md {
+    font-size: 2.5rem;
+  }
+
+  .quran-arabic-lg {
+    font-size: 3.25rem;
+  }
+}
+
+/* ─── Ayah End Marker ─── */
+.quran-arabic .ayah-end,
+.ayah-marker {
+  display: inline;
+  margin: 0 0.15em;
+  font-size: 1em;
+  vertical-align: baseline;
+}
+
+/* ─── Nested Arabic spans must inherit font ─── */
+.quran-arabic span[lang="ar"] {
+  display: inline;
+  position: relative;
+  vertical-align: baseline;
+}
+
+/* ─── Ensure no letter-spacing leaks ─── */
+.quran-arabic *,
+.quran-word-card-arabic {
+  letter-spacing: 0;
+  font-synthesis: none;
+}
+
+/* ─── RTL shell container ─── */
+.quran-line-shell {
+  direction: rtl;
+  unicode-bidi: isolate;
+  overflow: visible;
+}
