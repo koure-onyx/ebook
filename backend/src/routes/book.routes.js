@@ -1,15 +1,15 @@
 import { Router } from 'express';
 import * as bookController from '../controllers/book.controller.js';
-import { requireAdmin } from '../middleware/auth.js';
+import { requireAdmin, optionalAuth } from '../middleware/auth.js';
 import { apiLimiter } from '../middleware/rateLimit.js';
 
 const router = Router();
 
 // Public routes
-router.get('/', apiLimiter, bookController.getBooks);
-router.get('/:id', apiLimiter, bookController.getBook);
-router.get('/slug/:slug', apiLimiter, bookController.getBookBySlug);
-router.get('/:id/chapters', apiLimiter, bookController.getBookChapters);
+router.get('/', apiLimiter, optionalAuth, bookController.getBooks);
+router.get('/:id', apiLimiter, optionalAuth, bookController.getBook);
+router.get('/slug/:slug', apiLimiter, optionalAuth, bookController.getBookBySlug);
+router.get('/:id/chapters', apiLimiter, optionalAuth, bookController.getBookChapters);
 
 // Admin routes
 router.post('/', requireAdmin, bookController.createBook);
