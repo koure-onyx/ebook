@@ -1,12 +1,330 @@
+import crypto from 'crypto';
 import { Book } from '../models/Book.js';
 import { Chapter } from '../models/Chapter.js';
 import { Topic } from '../models/Topic.js';
+import { Program } from '../models/Program.js';
+import { Board } from '../models/Board.js';
 import { generateSlug } from '../utils/slug.js';
 
 /**
- * Ingest a complete book with chapters and topics
+ * Compute SHA256 hash for content version detection
  */
-export async function ingestBook(bookData) {
+function computeHash(text) {
+  return crypto.createHash('sha256').update(text || '').digest('hex');
+}
+
+/**
+ * Normalize key terms array
+ */
+function normalizeKeyTerms(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((term) => {
+      if (typeof term === 'string') {
+        return { term, definition: '' };
+      }
+      if (term && typeof term === 'object') {
+        return {
+          term: String(term.term || term.name || term.label || '').trim(),
+          definition: String(term.definition || term.explanation || '').trim(),
+        };
+      }
+      return null;
+    })
+    .filter((item) => item && item.term);
+}
+
+/**
+ * Ingest a complete book with chapters and topics - full pipeline matching source monorepo
+ * @param {Object} deepseekJson - The ingested JSON from AI processing
+ * @param {string} adminUserId - ID of the admin performing ingestion
+ */
+export async function ingestBook(deepseekJson, adminUserId) {
+  const log = [];
+  const { book_metadata, chapter, topics } = deepseekJson;
+
+  try {
+    // STEP 1: Upsert Program
+    let program = await Program.findOne({ slug: generateSlug(book_metadata.grade_level) });
+    if (!program) {
+      program = await Program.create({
+        name: book_metadata.grade_level,
+        slug: generateSlug(book_metadata.grade_level),
+        program_type: 'academic',
+        created_by: adminUserId,
+      });
+      log.push(`✓ Created Program: ${program.name}`);
+    }
+
+    // STEP 2: Upsert Board
+    let board = await Board.findOne({ name: book_metadata.board });
+    if (!board) {
+      board = await Board.create({
+        name: book_metadata.board,
+        slug: generateSlug(book_metadata.board),
+        short_code: book_metadata.board.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 5),
+      });
+      log.push(`✓ Created Board: ${board.name}`);
+    }
+
+    // STEP 3: Upsert Book — handle version control
+    const bookSlug = generateSlug(
+      `${book_metadata.subject}-${book_metadata.grade_level}-${board.short_code}-${book_metadata.edition_year}`
+    );
+
+    // Find any existing current edition for this subject+program+board
+    const existingCurrentBook = await Book.findOne({
+      subject_slug: generateSlug(book_metadata.subject),
+      program_id: program._id,
+      board_id: board._id,
+      is_current_edition: true,
+    });
+
+    const gradeVal = book_metadata.grade_level ? book_metadata.grade_level.replace(/grade\s*/i, '').trim() : undefined;
+    const boardVal = board ? board.name : (book_metadata.board || undefined);
+
+    let book;
+    if (existingCurrentBook && existingCurrentBook.edition_year === book_metadata.edition_year) {
+      // Same edition — just update
+      book = existingCurrentBook;
+      book.board = boardVal;
+      book.grade = gradeVal;
+      book.is_live = true;
+      await book.save();
+      log.push(`✓ Updating existing book: ${book.title}`);
+    } else if (existingCurrentBook) {
+      // New edition — archive the old one
+      await Book.findByIdAndUpdate(existingCurrentBook._id, { is_current_edition: false });
+      book = await Book.create({
+        title: book_metadata.title,
+        slug: bookSlug,
+        subject: book_metadata.subject,
+        subject_slug: generateSlug(book_metadata.subject),
+        board: boardVal,
+        grade: gradeVal,
+        program_id: program._id,
+        board_id: board._id,
+        edition_year: book_metadata.edition_year,
+        edition_label: `${book_metadata.edition_year} Edition`,
+        is_current_edition: true,
+        is_live: true,
+        previous_edition_id: existingCurrentBook._id,
+        metadata: {
+          authors: book_metadata.authors,
+          publisher: book_metadata.publisher,
+          language: book_metadata.language,
+          script_direction: book_metadata.script_direction,
+          grade_level: book_metadata.grade_level,
+        },
+        ingestion_status: 'complete',
+        created_by: adminUserId,
+      });
+      log.push(`✓ Created new edition: ${book.edition_year}. Previous edition archived.`);
+    } else {
+      // Brand new book
+      book = await Book.create({
+        title: book_metadata.title,
+        slug: bookSlug,
+        subject: book_metadata.subject,
+        subject_slug: generateSlug(book_metadata.subject),
+        board: boardVal,
+        grade: gradeVal,
+        program_id: program._id,
+        board_id: board._id,
+        edition_year: book_metadata.edition_year,
+        edition_label: `${book_metadata.edition_year} Edition`,
+        is_current_edition: true,
+        is_live: true,
+        metadata: {
+          authors: book_metadata.authors,
+          publisher: book_metadata.publisher,
+          language: book_metadata.language,
+          script_direction: book_metadata.script_direction,
+          grade_level: book_metadata.grade_level,
+        },
+        ingestion_status: 'complete',
+        created_by: adminUserId,
+      });
+      log.push(`✓ Created new book: ${book.title}`);
+    }
+
+    // STEP 4: Upsert Chapter
+    let chapterDoc = await Chapter.findOne({
+      book_id: book._id,
+      chapter_number: chapter.chapter_number,
+    });
+
+    if (!chapterDoc) {
+      chapterDoc = new Chapter({
+        title: chapter.title,
+        slug: chapter.slug,
+        chapter_number: chapter.chapter_number,
+        chapter_number_display: chapter.chapter_number_display || `Chapter ${chapter.chapter_number}`,
+        book_id: book._id,
+        program_id: program._id,
+        board_id: board._id,
+        student_learning_outcomes: chapter.student_learning_outcomes,
+        summary: chapter.chapter_summary,
+        page_start: chapter.page_start,
+        page_end: chapter.page_end,
+        seo: chapter.seo,
+        display_order: chapter.chapter_number,
+        is_live: true,
+      });
+    } else {
+      // Update chapter metadata
+      chapterDoc.title = chapter.title;
+      chapterDoc.student_learning_outcomes = chapter.student_learning_outcomes;
+      chapterDoc.summary = chapter.chapter_summary;
+      chapterDoc.seo = chapter.seo;
+      chapterDoc.is_live = true;
+    }
+
+    // STEP 5: Upsert Topics with version diff detection
+    const topicIds = [];
+    let newCount = 0, modifiedCount = 0, unchangedCount = 0;
+
+    for (const topicData of topics) {
+      const contentHash = computeHash(topicData.raw_text);
+
+      // Find previous version of this topic (by slug + chapter)
+      let previousVersionId = null;
+      let versionStatus = 'new';
+
+      if (book.previous_edition_id) {
+        const prevChapter = await Chapter.findOne({
+          book_id: book.previous_edition_id,
+          chapter_number: chapter.chapter_number,
+        });
+        if (prevChapter) {
+          const prevTopic = await Topic.findOne({
+            chapter_id: prevChapter._id,
+            slug: topicData.slug,
+          });
+          if (prevTopic) {
+            previousVersionId = prevTopic._id;
+            versionStatus = prevTopic.content_hash === contentHash ? 'unchanged' : 'modified';
+          }
+        }
+      }
+
+      // Find existing topic in current chapter (for re-ingestion)
+      let topicDoc = await Topic.findOne({
+        chapter_id: chapterDoc._id || (await Chapter.findOne({ book_id: book._id, chapter_number: chapter.chapter_number }))?._id,
+        slug: topicData.slug,
+      });
+
+      const topicPayload = {
+        title: topicData.title,
+        title_urdu: topicData.title_urdu || '',
+        slug: topicData.slug,
+        topic_number: topicData.topic_number,
+        display_order: topicData.display_order,
+        program_id: program._id,
+        board_id: board._id,
+        program_name: program.name,
+        subject_name: book_metadata.subject,
+        chapter_id: chapterDoc._id,
+        chapter_number: chapter.chapter_number,
+        chapter_title: chapter.title,
+        raw_text: topicData.raw_text,
+        clean_html: topicData.clean_html,
+        content_blocks: topicData.content_blocks,
+        formulas: topicData.formulas || [],
+        key_terms: normalizeKeyTerms(topicData.key_terms || []),
+        book_mcqs: topicData.book_mcqs || [],
+        book_short_questions: topicData.book_short_questions || [],
+        book_problems: topicData.book_problems || [],
+        keywords: topicData.keywords || [],
+        difficulty: topicData.difficulty || 'medium',
+        estimated_read_time: topicData.estimated_read_time || 3,
+        edition_year: book_metadata.edition_year,
+        version_status: versionStatus,
+        previous_version_id: previousVersionId,
+        content_hash: contentHash,
+        seo: topicData.seo || {},
+        is_live: true,
+        workflow_status: 'published',
+        created_by: adminUserId,
+      };
+
+      // Handle Quran Reference if present
+      if (topicData.quran_reference) {
+        const { surah, ayah } = topicData.quran_reference;
+        if (surah < 1 || surah > 114) {
+          log.push(`⚠ Warning: Invalid Surah ${surah} in topic ${topicData.slug}. Setting to null.`);
+          topicPayload.quran_reference = null;
+        } else if (ayah < 1) {
+          log.push(`⚠ Warning: Invalid Ayah ${ayah} in topic ${topicData.slug}. Setting to null.`);
+          topicPayload.quran_reference = null;
+        } else {
+          topicPayload.quran_reference = topicData.quran_reference;
+          topicPayload.quran_textbook_translation = topicData.quran_textbook_translation || null;
+          topicPayload.quran_textbook_tafsir = topicData.quran_textbook_tafsir || null;
+
+          // Validate word alignments
+          if (Array.isArray(topicData.quran_word_alignments)) {
+            topicPayload.quran_word_alignments = topicData.quran_word_alignments.filter(wa => {
+              if (!Number.isInteger(wa.position) || wa.position < 1) {
+                log.push(`⚠ Warning: Invalid word position ${wa.position} in topic ${topicData.slug}. Skipping alignment.`);
+                return false;
+              }
+              return true;
+            });
+          }
+        }
+      }
+
+      if (topicDoc) {
+        Object.assign(topicDoc, topicPayload);
+        await topicDoc.save();
+        if (versionStatus === 'modified') modifiedCount++;
+        else unchangedCount++;
+      } else {
+        topicDoc = await Topic.create({ ...topicPayload, book_id: book._id });
+        newCount++;
+      }
+
+      topicIds.push(topicDoc._id);
+    }
+
+    // STEP 6: Update chapter with topic IDs and save
+    chapterDoc.topic_ids = topicIds;
+    chapterDoc.total_topics = topicIds.length;
+    await chapterDoc.save();
+
+    // Update book counters
+    const totalTopics = await Topic.countDocuments({ book_id: book._id });
+    const totalChapters = await Chapter.countDocuments({ book_id: book._id });
+    await Book.findByIdAndUpdate(book._id, {
+      total_topics: totalTopics,
+      total_chapters: totalChapters,
+      ingestion_status: 'complete',
+      ingestion_log: log,
+    });
+
+    log.push(`✓ Chapter ingested: ${newCount} new, ${modifiedCount} modified, ${unchangedCount} unchanged topics.`);
+    return {
+      success: true,
+      log,
+      bookId: book._id,
+      chapterId: chapterDoc._id,
+      programSlug: program.slug,
+      subjectSlug: book.subject_slug,
+      chapterNumber: chapter.chapter_number,
+      firstTopicSlug: topics[0]?.slug
+    };
+
+  } catch (err) {
+    log.push(`✗ FATAL ERROR: ${err.message}`);
+    return { success: false, log, error: err.message };
+  }
+}
+
+/**
+ * Simple ingestion wrapper for basic book data
+ */
+export async function ingestBookSimple(bookData) {
   const { title, subject, classLevel, board, program, chapters, ...rest } = bookData;
 
   // Find or create book
@@ -37,7 +355,7 @@ export async function ingestBook(bookData) {
   // Process chapters
   if (chapters && Array.isArray(chapters)) {
     for (const chapterData of chapters) {
-      await ingestChapter(book._id, chapterData);
+      await ingestChapterSimple(book._id, chapterData);
     }
   }
 
@@ -45,19 +363,18 @@ export async function ingestBook(bookData) {
 }
 
 /**
- * Ingest a chapter with its topics
+ * Simple chapter ingestion
  */
-export async function ingestChapter(bookId, chapterData) {
+export async function ingestChapterSimple(bookId, chapterData) {
   const { title, chapterNumber, topics, ...rest } = chapterData;
 
-  // Find or create chapter
   const chapter = await Chapter.findOneAndUpdate(
     { book: bookId, chapterNumber },
     {
       book: bookId,
       title,
       chapterNumber,
-      slug: createSlug(title),
+      slug: generateSlug(title),
       ...rest
     },
     { upsert: true, new: true }
@@ -66,7 +383,7 @@ export async function ingestChapter(bookId, chapterData) {
   // Process topics
   if (topics && Array.isArray(topics)) {
     for (const topicData of topics) {
-      await ingestTopic(bookId, chapter._id, topicData);
+      await ingestTopicSimple(bookId, chapter._id, topicData);
     }
   }
 
@@ -74,12 +391,12 @@ export async function ingestChapter(bookId, chapterData) {
 }
 
 /**
- * Ingest a single topic
+ * Simple topic ingestion
  */
-export async function ingestTopic(bookId, chapterId, topicData) {
+export async function ingestTopicSimple(bookId, chapterId, topicData) {
   const { title, topicNumber, content, ...rest } = topicData;
 
-  const slug = createSlug(title);
+  const slug = generateSlug(title);
 
   const topic = await Topic.findOneAndUpdate(
     { book: bookId, chapter: chapterId, slug },
@@ -99,73 +416,7 @@ export async function ingestTopic(bookId, chapterId, topicData) {
 }
 
 /**
- * Bulk upsert topics
- */
-export async function bulkUpsertTopics(topicsData) {
-  const operations = topicsData.map(data => ({
-    updateOne: {
-      filter: { 
-        book: data.book, 
-        chapter: data.chapter, 
-        slug: data.slug || createSlug(data.title) 
-      },
-      update: {
-        $set: {
-          title: data.title,
-          content: data.content || '',
-          topicNumber: data.topicNumber || 0,
-          ...data
-        }
-      },
-      upsert: true
-    }
-  }));
-
-  const result = await Topic.bulkWrite(operations);
-  return result;
-}
-
-/**
- * Validate ingestion data structure
- */
-export function validateIngestionData(data) {
-  const errors = [];
-
-  if (!data.title) {
-    errors.push('Book title is required');
-  }
-
-  if (!data.subject) {
-    errors.push('Book subject is required');
-  }
-
-  if (!data.classLevel) {
-    errors.push('Book classLevel is required');
-  }
-
-  if (data.chapters && !Array.isArray(data.chapters)) {
-    errors.push('Chapters must be an array');
-  }
-
-  if (data.chapters) {
-    data.chapters.forEach((chapter, index) => {
-      if (!chapter.title) {
-        errors.push(`Chapter ${index}: title is required`);
-      }
-      if (chapter.topics && !Array.isArray(chapter.topics)) {
-        errors.push(`Chapter ${index}: topics must be an array`);
-      }
-    });
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors
-  };
-}
-
-/**
- * Get ingestion status/progress
+ * Get ingestion stats
  */
 export async function getIngestionStats() {
   const [bookCount, chapterCount, topicCount] = await Promise.all([
