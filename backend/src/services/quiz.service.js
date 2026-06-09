@@ -3,12 +3,13 @@ import { Question } from '../models/Question.js';
 import { Topic } from '../models/Topic.js';
 
 /**
- * Get quiz by ID
+ * Get quiz by ID with full population
  */
 export async function getQuizById(quizId) {
   const quiz = await Quiz.findById(quizId)
-    .populate('topic', 'title slug')
-    .populate('questions');
+    .populate('topic_id', 'title slug')
+    .populate('chapter_id', 'title slug')
+    .populate('book_id', 'title slug');
 
   if (!quiz) {
     const error = new Error('Quiz not found');
@@ -23,46 +24,86 @@ export async function getQuizById(quizId) {
  * Get quizzes by topic
  */
 export async function getQuizzesByTopic(topicId) {
-  const quizzes = await Quiz.find({ topic: topicId })
-    .populate('questions', 'questionText options questionType')
-    .sort({ createdAt: -1 });
+  const quizzes = await Quiz.find({ topic_id: topicId })
+    .sort({ created_at: -1 });
 
   return quizzes;
 }
 
 /**
- * Create quiz with questions
+ * Get user's quiz history for a topic
  */
-export async function createQuiz(quizData) {
-  const { topic, questions, ...rest } = quizData;
+export async function getUserQuizHistory(userId, topicId, limit = 10) {
+  const history = await Quiz.find({ 
+    user_id: userId, 
+    topic_id: topicId 
+  })
+    .sort({ created_at: -1 })
+    .limit(limit)
+    .populate('topic_id', 'title slug');
 
-  const topicExists = await Topic.findById(topic);
-  if (!topicExists) {
+  return history;
+}
+
+/**
+ * Create quiz attempt with answers
+ */
+export async function createQuizAttempt(quizData) {
+  const { 
+    user_id, 
+    topic_id, 
+    chapter_id, 
+    book_id, 
+    program_id,
+    score, 
+    answers, 
+    time_spent,
+    correct_count,
+    total_questions,
+    device_info 
+  } = quizData;
+
+  // Validate topic exists
+  const topic = await Topic.findById(topic_id);
+  if (!topic) {
     const error = new Error('Topic not found');
     error.code = 'TOPIC_NOT_FOUND';
     throw error;
   }
 
-  // Create questions first
-  const createdQuestions = await Question.insertMany(
-    questions.map(q => ({ ...q, topic }))
-  );
+  // Calculate accuracy percentage
+  const accuracy_percentage = total_questions > 0 
+    ? Math.round((correct_count / total_questions) * 100) 
+    : 0;
 
+  // Create difficulty breakdown from answers
+  const difficulty_breakdown = [];
+  
   const quiz = await Quiz.create({
-    ...rest,
-    topic,
-    questions: createdQuestions.map(q => q._id)
+    user_id,
+    topic_id,
+    chapter_id,
+    book_id,
+    program_id,
+    score,
+    answers,
+    time_spent: time_spent || 0,
+    correct_count,
+    total_questions,
+    accuracy_percentage,
+    difficulty_breakdown,
+    device_info
   });
 
-  return quiz.populate('questions');
+  return quiz;
 }
 
 /**
  * Submit quiz and calculate score
  */
-export async function submitQuiz(quizId, userAnswers) {
+export async function submitQuiz(quizId, userAnswers, timeSpent) {
   const quiz = await Quiz.findById(quizId).populate('questions');
-  
+
   if (!quiz) {
     const error = new Error('Quiz not found');
     error.code = 'QUIZ_NOT_FOUND';
@@ -72,72 +113,83 @@ export async function submitQuiz(quizId, userAnswers) {
   let correctCount = 0;
   const results = quiz.questions.map((question, index) => {
     const userAnswer = userAnswers[index];
-    const isCorrect = question.correctAnswer === userAnswer;
-    
+    const isCorrect = question.correct_answer === userAnswer;
+
     if (isCorrect) correctCount++;
 
     return {
-      questionId: question._id,
-      userAnswer,
-      correctAnswer: question.correctAnswer,
-      isCorrect
+      questionId: question._id.toString(),
+      selected: userAnswer,
+      isCorrect,
+      timeSpent: Math.floor(timeSpent / quiz.questions.length)
     };
   });
 
-  const totalQuestions = quiz.questions.length;
-  const score = (correctCount / totalQuestions) * 100;
-  const passed = score >= (quiz.passingScore || 70);
+  const score = Math.round((correctCount / quiz.questions.length) * 100);
+
+  const savedQuiz = await Quiz.findByIdAndUpdate(
+    quizId,
+    {
+      score,
+      answers: results,
+      time_spent: timeSpent,
+      correct_count: correctCount,
+      total_questions: quiz.questions.length,
+      accuracy_percentage: Math.round((correctCount / quiz.questions.length) * 100)
+    },
+    { new: true }
+  );
 
   return {
+    quiz: savedQuiz,
     score,
-    passed,
     correctCount,
-    totalQuestions,
+    totalQuestions: quiz.questions.length,
     results
   };
 }
 
 /**
- * Get random quiz for practice
+ * Get quiz statistics for a topic
  */
-export async function getRandomQuiz(topicId, limit = 5) {
-  const questions = await Question.aggregate([
-    { $match: { topic: require('mongoose').Types.ObjectId(topicId) } },
-    { $sample: { size: limit } }
-  ]);
+export async function getQuizStatsForTopic(topicId) {
+  const quizzes = await Quiz.find({ topic_id: topicId });
 
-  if (questions.length === 0) {
-    const error = new Error('No questions available for this topic');
-    error.code = 'NO_QUESTIONS';
-    throw error;
+  if (quizzes.length === 0) {
+    return {
+      totalAttempts: 0,
+      averageScore: 0,
+      highestScore: 0,
+      lowestScore: 0,
+      averageTimeSpent: 0
+    };
   }
 
+  const scores = quizzes.map(q => q.score);
+  const times = quizzes.map(q => q.time_spent || 0);
+
   return {
-    questions,
-    totalQuestions: questions.length
+    totalAttempts: quizzes.length,
+    averageScore: Math.round(scores.reduce((a, b) => a + b, 0) / scores.length),
+    highestScore: Math.max(...scores),
+    lowestScore: Math.min(...scores),
+    averageTimeSpent: Math.round(times.reduce((a, b) => a + b, 0) / times.length)
   };
 }
 
 /**
- * Get question by ID
+ * Get user's best score for a topic
  */
-export async function getQuestionById(questionId) {
-  const question = await Question.findById(questionId)
-    .populate('topic', 'title slug');
+export async function getUserBestScore(userId, topicId) {
+  const bestQuiz = await Quiz.findOne({ 
+    user_id: userId, 
+    topic_id: topicId 
+  }).sort({ score: -1 });
 
-  if (!question) {
-    const error = new Error('Question not found');
-    error.code = 'QUESTION_NOT_FOUND';
-    throw error;
-  }
-
-  return question;
-}
-
-/**
- * Create multiple questions
- */
-export async function createQuestions(questionsData) {
-  const questions = await Question.insertMany(questionsData);
-  return questions;
+  return bestQuiz ? {
+    score: bestQuiz.score,
+    correct_count: bestQuiz.correct_count,
+    total_questions: bestQuiz.total_questions,
+    date: bestQuiz.created_at
+  } : null;
 }

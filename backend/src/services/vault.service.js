@@ -2,92 +2,137 @@ import { UserVault } from '../models/UserVault.js';
 import { Topic } from '../models/Topic.js';
 
 /**
- * Get user's vault items
+ * Get user's vault items by type
  */
-export async function getUserVault(userId) {
-  const vault = await UserVault.findOne({ user: userId })
-    .populate('topics', 'title slug content book chapter');
-
-  if (!vault) {
-    // Create empty vault for user
-    return await UserVault.create({ user: userId, topics: [] });
+export async function getUserVaultItems(userId, type = null) {
+  const query = { user_id: userId };
+  if (type) {
+    query.type = type;
   }
 
-  return vault;
+  const items = await UserVault.find(query)
+    .populate('topic_id', 'title slug')
+    .populate('chapter_id', 'title slug')
+    .sort({ createdAt: -1 });
+
+  return items;
 }
 
 /**
- * Add topic to vault
+ * Add item to user's vault
  */
-export async function addToVault(userId, topicId) {
-  const topic = await Topic.findById(topicId);
+export async function addToVault(userId, vaultData) {
+  const { topic_id, type, flashcard, video, highlight, note } = vaultData;
+
+  // Validate topic exists
+  const topic = await Topic.findById(topic_id);
   if (!topic) {
     const error = new Error('Topic not found');
     error.code = 'TOPIC_NOT_FOUND';
     throw error;
   }
 
-  let vault = await UserVault.findOne({ user: userId });
+  // Create vault item
+  const vaultItem = await UserVault.create({
+    user_id: userId,
+    topic_id,
+    chapter_id: topic.chapter_id,
+    program_id: topic.program_id,
+    type,
+    flashcard: type === 'flashcard' ? flashcard : undefined,
+    video: type === 'video_link' ? video : undefined,
+    highlight: type === 'highlight' ? highlight : undefined,
+    note: type === 'note' ? note : undefined,
+  });
 
-  if (!vault) {
-    vault = await UserVault.create({ user: userId, topics: [topicId] });
-  } else {
-    // Check if already in vault
-    if (vault.topics.includes(topicId)) {
-      const error = new Error('Topic already in vault');
-      error.code = 'ALREADY_IN_VAULT';
-      throw error;
-    }
-
-    vault.topics.push(topicId);
-    await vault.save();
-  }
-
-  return vault;
+  return vaultItem;
 }
 
 /**
- * Remove topic from vault
+ * Remove item from vault
  */
-export async function removeFromVault(userId, topicId) {
-  const vault = await UserVault.findOne({ user: userId });
+export async function removeFromVault(userId, itemId) {
+  const result = await UserVault.findOneAndDelete({
+    _id: itemId,
+    user_id: userId
+  });
 
-  if (!vault) {
-    const error = new Error('Vault not found');
-    error.code = 'VAULT_NOT_FOUND';
+  if (!result) {
+    const error = new Error('Vault item not found');
+    error.code = 'VAULT_ITEM_NOT_FOUND';
     throw error;
   }
 
-  vault.topics = vault.topies.filter(id => id.toString() !== topicId);
-  await vault.save();
-
-  return vault;
+  return result;
 }
 
 /**
- * Check if topic is in vault
+ * Update vault item review status
  */
-export async function isInVault(userId, topicId) {
-  const vault = await UserVault.findOne({ user: userId });
+export async function updateReviewStatus(userId, itemId, reviewStatus) {
+  const item = await UserVault.findOneAndUpdate(
+    { _id: itemId, user_id: userId },
+    {
+      review_status: reviewStatus,
+      last_reviewed: new Date()
+    },
+    { new: true }
+  );
 
-  if (!vault) {
-    return false;
+  if (!item) {
+    const error = new Error('Vault item not found');
+    error.code = 'VAULT_ITEM_NOT_FOUND';
+    throw error;
   }
 
-  return vault.topics.some(id => id.toString() === topicId);
+  return item;
+}
+
+/**
+ * Check if topic item exists in vault
+ */
+export async function isItemInVault(userId, topicId, type = null) {
+  const query = { user_id: userId, topic_id: topicId };
+  if (type) {
+    query.type = type;
+  }
+
+  const count = await UserVault.countDocuments(query);
+  return count > 0;
 }
 
 /**
  * Get vault statistics
  */
 export async function getVaultStats(userId) {
-  const vault = await UserVault.findOne({ user: userId });
+  const stats = await UserVault.aggregate([
+    { $match: { user_id: userId } },
+    {
+      $group: {
+        _id: '$type',
+        count: { $sum: 1 }
+      }
+    }
+  ]);
 
-  if (!vault) {
-    return { topicCount: 0 };
-  }
-
-  return {
-    topicCount: vault.topics.length
+  const result = {
+    total: 0,
+    flashcards: 0,
+    bookmarks: 0,
+    notes: 0,
+    highlights: 0,
+    video_links: 0
   };
+
+  stats.forEach(stat => {
+    const type = stat._id;
+    result.total += stat.count;
+    if (type === 'flashcard') result.flashcards = stat.count;
+    else if (type === 'bookmark') result.bookmarks = stat.count;
+    else if (type === 'note') result.notes = stat.count;
+    else if (type === 'highlight') result.highlights = stat.count;
+    else if (type === 'video_link') result.video_links = stat.count;
+  });
+
+  return result;
 }
