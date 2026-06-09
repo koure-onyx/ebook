@@ -1,0 +1,106 @@
+/* Top Navigation — Mobile-First Header */
+
+.top-navigation {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding-top: env(safe-area-inset-top, 0px);
+  background-color: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border);
+  z-index: var(--z-sticky);
+}
+
+.top-nav-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--nav-header-height);
+  padding: 0 var(--space-4);
+  max-width: var(--container-wide);
+  margin: 0 auto;
+}
+
+.top-nav-left,
+.top-nav-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.brand-logo {
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target-comfortable);
+  height: var(--touch-target-comfortable);
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--easing-default);
+}
+
+.back-button:hover {
+  background-color: var(--color-bg-secondary);
+}
+
+.icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target-comfortable);
+  height: var(--touch-target-comfortable);
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--easing-default);
+  position: relative;
+}
+
+.icon-button:hover {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+}
+
+.notification-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  background-color: var(--color-error);
+  color: var(--color-text-inverse);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-bg-primary);
+}
+
+/* Desktop Enhancements */
+@media (min-width: 768px) {
+  .top-nav-container {
+    padding: 0 var(--space-6);
+  }
+  
+  .brand-logo {
+    font-size: var(--text-xl);
+  }
+}

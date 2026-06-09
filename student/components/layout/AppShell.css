@@ -1,0 +1,93 @@
+/* AppShell — Mobile-First Layout Container */
+
+.app-shell {
+  position: relative;
+  min-height: var(--dvh);
+  min-height: var(--dvh-fallback);
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg-primary);
+}
+
+/* Skip Link for Accessibility */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+  z-index: var(--z-max);
+  transition: top var(--duration-fast) var(--easing-default);
+}
+
+.skip-link:focus {
+  top: var(--space-4);
+  box-shadow: var(--shadow-focus);
+}
+
+/* Main Content Area */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--nav-header-height);
+  padding-bottom: var(--nav-bottom-height);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--color-bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-overlay);
+}
+
+.loading-skeleton {
+  width: 100%;
+  max-width: 400px;
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base) 0%,
+    var(--skeleton-shimmer) 50%,
+    var(--skeleton-base) 100%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-full);
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Safe Area Padding for Mobile */
+@media (min-width: 768px) {
+  .main-content {
+    padding-bottom: var(--space-8);
+  }
+}
+
+/* Desktop - Hide Bottom Nav */
+@media (min-width: 1024px) {
+  .main-content {
+    padding-bottom: var(--space-8);
+  }
+}

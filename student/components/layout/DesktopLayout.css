@@ -1,0 +1,96 @@
+/* Desktop Layout — Multi-Column Enhanced Experience */
+
+.desktop-layout {
+  display: none; /* Hidden on mobile by default */
+  min-height: var(--dvh);
+  min-height: var(--dvh-fallback);
+  background-color: var(--color-bg-primary);
+}
+
+.desktop-sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 280px;
+  padding: var(--space-6);
+  padding-top: calc(var(--space-6) + env(safe-area-inset-top, 0px));
+  background-color: var(--color-bg-secondary);
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+  z-index: var(--z-sticky);
+  transition: transform var(--duration-slow) var(--easing-default);
+}
+
+.desktop-content-wrapper {
+  margin-left: 280px;
+  display: flex;
+  flex-direction: column;
+  min-height: var(--dvh);
+  min-height: var(--dvh-fallback);
+}
+
+.desktop-topbar {
+  position: sticky;
+  top: 0;
+  height: var(--nav-header-height);
+  padding: 0 var(--space-6);
+  background-color: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: var(--z-base);
+}
+
+.desktop-main {
+  flex: 1;
+  padding: var(--space-8);
+  padding-bottom: calc(var(--space-8) + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  max-width: var(--container-wide);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Custom Scrollbar for Sidebar */
+.desktop-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.desktop-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.desktop-sidebar::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: var(--radius-full);
+}
+
+/* Collapsed Sidebar State (for future implementation) */
+.desktop-sidebar[data-collapsed="true"] {
+  transform: translateX(-100%);
+}
+
+.desktop-content-wrapper[data-sidebar-collapsed="true"] {
+  margin-left: 0;
+}
+
+/* Show on Desktop Only */
+@media (min-width: 1024px) {
+  .desktop-layout {
+    display: flex;
+  }
+}
+
+/* Large Desktop */
+@media (min-width: 1440px) {
+  .desktop-sidebar {
+    width: 320px;
+  }
+  
+  .desktop-content-wrapper {
+    margin-left: 320px;
+  }
+}
