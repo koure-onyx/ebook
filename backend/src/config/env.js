@@ -1,4 +1,51 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+
+function loadDotEnv() {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  const envPath = path.resolve(__dirname, '../../.env');
+
+  if (!fs.existsSync(envPath)) {
+    return;
+  }
+
+  const contents = fs.readFileSync(envPath, 'utf8');
+  const lines = contents.split(/\r?\n/);
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    if (!trimmed || trimmed.startsWith('#')) {
+      continue;
+    }
+
+    const equalsIndex = trimmed.indexOf('=');
+    if (equalsIndex === -1) {
+      continue;
+    }
+
+    const key = trimmed.slice(0, equalsIndex).trim();
+    let value = trimmed.slice(equalsIndex + 1).trim();
+
+    if (!key || process.env[key] !== undefined) {
+      continue;
+    }
+
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    process.env[key] = value;
+  }
+}
+
+loadDotEnv();
 
 const envSchema = z.object({
   NODE_ENV: z.string().default('development'),
@@ -17,7 +64,10 @@ const envSchema = z.object({
   AI_PROVIDER: z.enum(['openai', 'gemini']).default('gemini'),
   STUDENT_ORIGIN: z.string().url().default('http://localhost:3000'),
   ADMIN_ORIGIN: z.string().url().default('http://localhost:3001'),
-  EMAIL_FROM: z.string().email().optional(),
+  EMAIL_FROM: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().email().optional()
+  ),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.string().optional(),
   SMTP_USER: z.string().optional(),
