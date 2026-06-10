@@ -336,3 +336,39 @@ export const api = {
   delete: <T>(path: string) => request<T>('DELETE', path),
   stream: streamSSE,
 };
+
+// Additional server-side functions
+export async function getProgressServer(token: string | null) {
+  return requestServer<{
+    user_id: string;
+    total_books_read: number;
+    books_in_progress: number;
+    total_topics_studied: number;
+    quiz_scores: any[];
+    weekly_activity: any[];
+    mastery_levels: Record<string, string>;
+  }>('GET', '/progress', token);
+}
+
+export async function getVaultServer(token: string | null) {
+  return requestServer<{
+    user_id: string;
+    items_count: number;
+    items: any[];
+  }>('GET', '/vault', token);
+}
+
+export async function getChapterProgress(chapterId: string, token: string | null) {
+  return requestServer<any>('GET', `/progress/chapter/${chapterId}`, token);
+}
+
+export async function getPublicTopicBySlug(subject: string, chapter: string, topic: string) {
+  return request<any>('GET', `/topics/public/by-slug/${subject}/${chapter}/${topic}`);
+}
+
+export async function getCheckoutPlans(token: string | null) {
+  if (token) {
+    return requestServer<any[]>('GET', '/checkout/plans', token);
+  }
+  return requestServer<any[]>('GET', '/checkout/plans', null);
+}

@@ -1,14 +1,58 @@
 import React from 'react';
 import { Beaker, Lightbulb, Info } from 'lucide-react';
 import QuranVerseRenderer from '@/components/QuranVerseRenderer';
+import { InlineMath, BlockMath } from 'react-katex';
+import 'katex/dist/katex.min.css';
+
 
 function blockHtmlText(block: any): string {
   const raw = block?.html ?? block?.text ?? '';
   return typeof raw === 'string' ? raw : String(raw);
 }
 
+
+function renderMathContent(content: string, isInline: boolean = true): JSX.Element {
+  try {
+    // Strip $ delimiters
+    let latex = content.trim();
+    if (isInline) {
+      // Remove single $ delimiters
+      latex = latex.replace(/^\$|\$$/g, '').trim();
+      return <InlineMath math={latex} />;
+    } else {
+      // Remove double $$ delimiters
+      latex = latex.replace(/^\$\$|\$\$$/g, '').trim();
+      return <BlockMath math={latex} />;
+    }
+  } catch (error) {
+    // Fallback for invalid LaTeX
+    return <span className="text-red-500 text-sm">Invalid LaTeX: {content}</span>;
+  }
+}
+
 function BlockRenderer({ block, index, topicId }: { block: any; index: number; topicId?: string }) {
   if (!block) return null;
+
+  // Handle math blocks (KaTeX)
+  if (block.type === 'math' || block.type === 'math_block') {
+    return (
+      <div key={index} className="my-6 p-4 bg-gray-50 rounded-lg border-l-[3px] border-indigo-500">
+        <div className="text-sm text-gray-700">
+          {renderMathContent(block.content || block.text || block.html, false)}
+        </div>
+      </div>
+    );
+  }
+
+  if (block.type === 'math_inline') {
+    return (
+      <span key={index} className="inline-block px-1">
+        {renderMathContent(block.content || block.text || block.html, true)}
+      </span>
+    );
+  }
+
+
 
   const htmlText = blockHtmlText(block);
   const text = typeof block.text === 'string' ? block.text : blockHtmlText(block);
