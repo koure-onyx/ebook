@@ -1,0 +1,390 @@
+/* UI-UX Pro Max Design System - Pakistani Education Theme */
+/* Mobile-first: 375px base, scaling up */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────
+   DESIGN TOKENS — LIGHT MODE ONLY
+   Source of Truth for StudyVault PK UI
+   NO hardcoded colors allowed in components
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  /* Color System — Light Mode Only */
+  --color-bg-primary: #FFFFFF;
+  --color-bg-secondary: #F8FAFC;
+  --color-bg-tertiary: #F1F5F9;
+  
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #334155;
+  --color-text-muted: #64748B;
+  --color-text-inverse: #FFFFFF;
+  
+  --color-border: #E2E8F0;
+  --color-border-strong: #CBD5E1;
+  
+  /* Brand Colors (from existing primary palette) */
+  --color-primary: #3B82F6;
+  --color-primary-light: #60A5FA;
+  --color-primary-dark: #2563EB;
+  --color-primary-foreground: #FFFFFF;
+  
+  /* Accent Colors */
+  --color-accent: #10B981;
+  --color-accent-light: #34D399;
+  --color-accent-dark: #059669;
+  
+  /* Semantic Colors */
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-info: #3B82F6;
+  
+  /* Gradient Backgrounds */
+  --gradient-bg-main: linear-gradient(to bottom right, #F8FAFC, #FFFFFF);
+  --gradient-bg-subtle: linear-gradient(to bottom, #F8FAFC, #FFFFFF);
+  
+  /* Spacing System (8pt Grid) */
+  --space-0: 0;
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+  --space-20: 5rem;     /* 80px */
+  --space-24: 6rem;     /* 96px */
+  
+  /* Typography Scale */
+  --text-xs: 0.75rem;    /* 12px */
+  --text-sm: 0.875rem;   /* 14px */
+  --text-base: 1rem;     /* 16px */
+  --text-lg: 1.125rem;   /* 18px */
+  --text-xl: 1.25rem;    /* 20px */
+  --text-2xl: 1.5rem;    /* 24px */
+  --text-3xl: 1.875rem;  /* 30px */
+  --text-4xl: 2.25rem;   /* 36px */
+  
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+  
+  /* Border Radius System */
+  --radius-none: 0;
+  --radius-sm: 0.375rem;   /* 6px */
+  --radius-md: 0.625rem;   /* 10px */
+  --radius-lg: 0.875rem;   /* 14px */
+  --radius-xl: 1.25rem;    /* 20px */
+  --radius-2xl: 1.5rem;    /* 24px */
+  --radius-3xl: 2rem;      /* 32px */
+  --radius-full: 9999px;
+  
+  /* Shadow System (Light Mode Optimized) */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  
+  /* Functional Shadows */
+  --shadow-card: var(--shadow-md);
+  --shadow-modal: var(--shadow-xl);
+  --shadow-dropdown: var(--shadow-lg);
+  --shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.5);
+  
+  /* Motion System */
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+  --duration-slow: 250ms;
+  --duration-slower: 300ms;
+  
+  --easing-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --easing-enter: cubic-bezier(0.0, 0.0, 0.2, 1);
+  --easing-exit: cubic-bezier(0.4, 0.0, 1, 1);
+  
+  /* Layout Constraints */
+  --container-mobile: 375px;
+  --container-tablet: 768px;
+  --container-desktop: 1024px;
+  --container-wide: 1440px;
+  
+  /* Viewport Heights (Mobile Safari Safe) */
+  --dvh: 100dvh;
+  --dvh-fallback: 100vh;
+  
+  /* Safe Area Insets */
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  
+  /* Navigation Heights */
+  --nav-header-height: 3.5rem;   /* 56px */
+  --nav-bottom-height: 4.5rem;   /* 72px including padding */
+  
+  /* Touch Targets (Accessibility) */
+  --touch-target-min: 44px;
+  --touch-target-comfortable: 48px;
+  
+  /* Z-Index Scale */
+  --z-base: 0;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-popover: 500;
+  --z-toast: 600;
+  --z-max: 9999;
+}
+
+/* Component Tokens */
+:root {
+  /* Button Tokens */
+  --button-primary-bg: var(--color-primary);
+  --button-primary-hover: var(--color-primary-dark);
+  --button-primary-text: var(--color-primary-foreground);
+  
+  --button-secondary-bg: var(--color-bg-secondary);
+  --button-secondary-hover: var(--color-bg-tertiary);
+  --button-secondary-text: var(--color-text-primary);
+  
+  --button-outline-bg: transparent;
+  --button-outline-border: var(--color-border);
+  --button-outline-hover: var(--color-bg-secondary);
+  --button-outline-text: var(--color-text-primary);
+  
+  /* Input Tokens */
+  --input-bg: var(--color-bg-primary);
+  --input-border: var(--color-border);
+  --input-border-focus: var(--color-primary);
+  --input-text: var(--color-text-primary);
+  --input-placeholder: var(--color-text-muted);
+  
+  /* Card Tokens */
+  --card-bg: var(--color-bg-primary);
+  --card-border: var(--color-border);
+  --card-shadow: var(--shadow-card);
+  
+  /* Skeleton Loader */
+  --skeleton-base: var(--color-bg-secondary);
+  --skeleton-shimmer: var(--color-bg-tertiary);
+}
+
+@font-face {
+  font-family: 'Jameel Noori Nastaleeq';
+  src: url('/fonts/JameelNooriNastaleeq.ttf') format('truetype');
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'KingFahdQuran';
+  src: url('https://verses.quran.foundation/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.woff2') format('woff2'),
+       url('https://verses.quran.foundation/fonts/quran/hafs/uthmanic_hafs/UthmanicHafs1Ver18.ttf') format('truetype');
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+  font-display: swap;
+}
+
+:root {
+  /* Primary Colors - Pakistani Flag Inspired */
+  --primary-green: #115E4B;
+  --primary-green-light: #059669;
+  --primary-gold: #F59E0B;
+  --primary-gold-light: #FBBF24;
+  
+  /* Secondary Colors */
+  --accent-blue: #0EA5E9;
+  --accent-purple: #8B5CF6;
+  --accent-teal: #14B8A6;
+  
+  /* Semantic Colors */
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --info: #3B82F6;
+  
+  /* Neutrals */
+  --gray-50: #F9FAFB;
+  --gray-100: #F3F4F6;
+  --gray-200: #E5E7EB;
+  --gray-300: #D1D5DB;
+  --gray-400: #9CA3AF;
+  --gray-500: #6B7280;
+  --gray-600: #4B5563;
+  --gray-700: #374151;
+  --gray-800: #1F2937;
+  --gray-900: #111827;
+  
+  /* Backgrounds */
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F9FAFB;
+  --bg-tertiary: #F3F4F6;
+  
+  /* Typography */
+  --font-primary: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Poppins', var(--font-primary);
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  
+  /* Border Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+  
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 500ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-primary);
+  background-color: var(--bg-secondary);
+  color: var(--gray-900);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--gray-100);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gray-400);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-500);
+}
+
+/* Focus States */
+:focus-visible {
+  outline: 2px solid var(--primary-green);
+  outline-offset: 2px;
+}
+
+/* Selection */
+::selection {
+  background-color: var(--primary-green);
+  color: white;
+}
+
+/* Glassmorphism */
+.glass {
+  @apply bg-white/80 border border-white/20;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Quranic Typography - OpenType Arabic Features */
+.font-quran-core {
+  font-family: 'KingFahdQuran', 'Amiri', 'Arial', serif !important;
+  text-rendering: optimizeLegibility !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  
+  /* Crucial OpenType features for Arabic script micro-positioning */
+  font-variant-ligatures: discretionary-ligatures common-ligatures contextual !important;
+  font-feature-settings: "kern" 1, "liga" 1, "clig" 1, "calt" 1, "ccmp" 1, "mset" 1 !important;
+  font-synthesis: none;
+  letter-spacing: 0;
+}
+
+[dir="rtl"],
+[lang="ar"],
+.arabic-content,
+.quran-content {
+  direction: rtl;
+  unicode-bidi: isolate;
+  text-align: right;
+}
+
+[lang="ar"],
+.arabic-content {
+  font-family: 'KingFahdQuran', 'Jameel Noori Nastaleeq', Arial, serif;
+  line-height: 2.6;
+  overflow: visible;
+  letter-spacing: 0;
+  word-spacing: 0.12em;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1, "liga" 1, "clig" 1, "calt" 1, "ccmp" 1, "mset" 1;
+}
+
+.quran-content,
+.quran-full-ayah {
+  font-family: 'KingFahdQuran', 'Amiri', Arial, serif !important;
+  direction: rtl;
+  unicode-bidi: isolate;
+  line-height: 3.1;
+  overflow: visible;
+  white-space: normal;
+  letter-spacing: 0;
+  word-spacing: 0.2em;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  font-variant-ligatures: discretionary-ligatures common-ligatures contextual;
+  font-feature-settings: "kern" 1, "liga" 1, "clig" 1, "calt" 1, "ccmp" 1, "mset" 1;
+}
+
+.quran-content span,
+.quran-full-ayah span,
+.arabic-content span {
+  letter-spacing: 0;
+  line-height: inherit;
+}
+
+.quran-content [style*="letter-spacing"],
+.quran-full-ayah [style*="letter-spacing"],
+.arabic-content [style*="letter-spacing"] {
+  letter-spacing: 0 !important;
+}
