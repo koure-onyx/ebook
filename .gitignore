@@ -51,3 +51,11 @@ coverage.xml
 .DS_Store
 Thumbs.db
 ```
+
+# Dependencies
+node_modules/
+backend/node_modules/
+
+# Next.js build output
+admin/.next/
+.next/
