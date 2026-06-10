@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import type { IChapter } from '@studyvault/db/models';
+import type { IChapter } from '@/types';
 
 interface ChapterReaderProps {
   book: any;
