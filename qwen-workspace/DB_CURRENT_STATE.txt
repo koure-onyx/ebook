@@ -1,0 +1,36 @@
+
+DATABASE 'studyvault' has 88711 total documents
+  programs: 1 docs
+  fields: ['_id', 'name', 'slug', 'program_type', 'createdAt', 'updatedAt']
+  boards: 1 docs
+  fields: ['_id', 'name', 'slug', 'short_code', 'program_id', 'createdAt', 'updatedAt']
+  topics: 4 docs
+  fields: ['_id', 'title', 'slug', 'chapter_id', 'chapter_number', 'topic_number', 'difficulty', 'grade_level', 'edition_year', 'clean_html', 'raw_text', 'program_id', 'book_id', 'display_order', 'estimated_read_time', 'exam_frequency_count', 'content', 'is_live', 'createdAt', 'updatedAt', 'workflow_status']
+  quranwords: 82456 docs
+  fields: ['_id', 'ayah', 'surah', 'word_position', '__v', 'arabic_word']
+  quranverses: 6236 docs
+  fields: ['_id', 'surah', 'ayah', '__v', 'text_uthmani']
+  books: 2 docs
+  fields: ['_id', 'title', 'subject', 'subject_slug', 'slug', 'grade', 'edition_year', 'is_current_edition', 'is_live', 'program_id', 'board_id', 'total_topics', 'createdAt', 'updatedAt', 'is_public']
+  chapters: 4 docs
+  fields: ['_id', 'title', 'slug', 'chapter_number', 'book_id', 'program_id', 'board_id', 'is_live', 'total_topics', 'createdAt', 'updatedAt']
+  uservaults: 3 docs
+  fields: ['_id', 'user_id', 'topic_id', 'type', 'flashcard', 'video', 'highlight', 'review_status', 'createdAt', 'updatedAt', '__v']
+  users: 4 docs
+  fields: ['_id', 'email', 'password', 'name', 'role', 'provider', 'isEmailVerified', 'subscriptionStatus', 'createdAt', 'updatedAt', '__v']
+
+DATABASE 'test' has 226 total documents
+  topics: 210 docs
+  fields: ['_id', 'subjectId', 'title', 'content', 'pageNumber', 'isExtracted', 'extractionLog', 'order', 'createdAt', '__v']
+  subjects: 4 docs
+  fields: ['_id', 'title', 'grade', 'board', 'edition', 'pdfUrl', 'cloudinaryId', 'status', 'totalPages', 'extractedPages', 'createdBy', 'name', 'program', 'editionYear', 'chapters', 'isPublished', 'createdAt', '__v']
+  chapters: 3 docs
+  fields: ['_id', 'title', 'slug', 'chapter_number', 'chapter_number_display', 'book_id', 'program_id', 'board_id', 'student_learning_outcomes', 'summary', 'page_start', 'page_end', 'topic_ids', 'total_topics', 'seo', 'is_live', 'display_order', 'exam_frequency', 'createdAt', 'updatedAt', '__v']
+  users: 6 docs
+  fields: ['_id', 'name', 'email', 'password', 'emailVerified', 'role', 'subscriptionTier', 'maxManagedProfiles', 'aiUsageCount', 'academicProfile', 'managedStudents', 'xp', 'streak', 'registeredDevices', 'lastActive', 'createdAt', '__v', 'passwordResetExpiry', 'passwordResetToken', 'phone']
+  books: 1 docs
+  fields: ['_id', 'title', 'slug', 'subject', 'subject_slug', 'program_id', 'board_id', 'edition_year', 'edition_label', 'is_current_edition', 'previous_edition_id', 'metadata', 'seo', 'total_chapters', 'total_topics', 'ingestion_status', 'ingestion_log', 'is_live', 'created_by', 'createdAt', 'updatedAt', '__v', 'board', 'grade']
+  boards: 1 docs
+  fields: ['_id', 'name', 'slug', 'short_code', 'country', 'is_active', 'createdAt', 'updatedAt', '__v']
+  programs: 1 docs
+  fields: ['_id', 'name', 'slug', 'program_type', 'is_linear', 'requires_textbook', 'display_order', 'is_active', 'is_featured', 'access_tier', 'created_by', 'applicable_boards', 'createdAt', 'updatedAt', '__v']
