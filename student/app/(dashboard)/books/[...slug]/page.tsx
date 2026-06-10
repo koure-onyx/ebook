@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getBookBySubject, getBooksServer, searchContentServer } from '@/lib/api/client';
+import { getBookBySubject, getBooksServer, searchContentServer, getTopicByNestedSlugs } from '@/lib/api/client';
 import { parseReaderPath, bookUrl, chapterUrl, topicUrl } from '@/lib/reader-urls';
 
 interface BookParams {
@@ -12,14 +12,14 @@ async function findBookByBoardGradeSubject(boardCode: string, grade: string, sub
   try {
     const books = await getBooksServer(token, { grade, subject: subjectSlug });
     const bookArray = Array.isArray(books) ? books : (books?.books || []);
-    
+
     for (const book of bookArray) {
       const bookBoardCode = book.board_id?.short_code || book.board_id?.slug || '';
       if (bookBoardCode.toUpperCase() === boardCode.toUpperCase() && book.grade === grade) {
         return book;
       }
     }
-    
+
     if (bookArray.length > 0) {
       return bookArray[0];
     }
@@ -38,7 +38,7 @@ export default async function ReaderPage({
   const slugs = resolvedParams.slug ?? [];
 
   const parsed = parseReaderPath(slugs);
-  
+
   if (!parsed.boardCode || !parsed.grade || !parsed.subjectSlug) {
     notFound();
   }
@@ -56,21 +56,40 @@ export default async function ReaderPage({
     let chapter = null;
     let topic = null;
 
-    if (chapterSlug) {
+    // If we have both chapter and topic slugs, use the new nested slug API
+    if (chapterSlug && topicSlug) {
+      try {
+        const topicResponse = await getTopicByNestedSlugs(boardCode, grade, subjectSlug, chapterSlug, topicSlug);
+        if (topicResponse && topicResponse.data && topicResponse.data.topic) {
+          topic = topicResponse.data.topic;
+          chapter = topicResponse.data.chapter || null;
+        }
+      } catch (error) {
+        console.error('Error fetching topic by nested slugs:', error);
+        // Fallback to old method if new API fails
+      }
+    }
+
+    // Fallback: if topic not found via new API, try old method
+    if (!topic && chapterSlug) {
       const chaptersResponse = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/books/${book._id}/chapters`,
         { headers: { 'Content-Type': 'application/json' } }
       );
       const chaptersData = await chaptersResponse.json();
+      
+      // Handle both old raw array and new {success, data} format
       const chapters = chaptersData?.data || chaptersData || [];
       chapter = Array.isArray(chapters) ? chapters.find((c: any) => c.slug === chapterSlug) : null;
 
-      if (topicSlug && chapter) {
+      if (topicSlug && chapter && !topic) {
         const topicsResponse = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/chapters/${chapter._id}/topics`,
           { headers: { 'Content-Type': 'application/json' } }
         );
         const topicsData = await topicsResponse.json();
+        
+        // Handle both old raw array and new {success, data} format
         const topics = topicsData?.data || topicsData || [];
         topic = Array.isArray(topics) ? topics.find((t: any) => t.slug === topicSlug) : null;
       }
@@ -85,13 +104,13 @@ export default async function ReaderPage({
           {chapter && <p><strong>Chapter:</strong> {chapter.title} ({chapterSlug})</p>}
           {topic && <p><strong>Topic:</strong> {topic.title} ({topicSlug})</p>}
         </div>
-        
+
         <div className="mt-6 p-4 bg-slate-50 rounded-lg">
           <h2 className="font-semibold mb-2">URL Structure Verified</h2>
           <p className="text-sm font-mono">
-            {topic 
+            {topic
               ? topicUrl(boardCode, grade, subjectSlug, chapterSlug!, topicSlug)
-              : chapter 
+              : chapter
                 ? chapterUrl(boardCode, grade, subjectSlug, chapterSlug!)
                 : bookUrl(boardCode, grade, subjectSlug)
             }
