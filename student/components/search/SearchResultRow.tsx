@@ -41,7 +41,7 @@ interface SubjectResult {
   topicCount: number;
 }
 
-type SearchResult = 
+type SearchResult =
   | { type: "topic"; data: TopicResult }
   | { type: "chapter"; data: ChapterResult }
   | { type: "subject"; data: SubjectResult };
@@ -77,6 +77,21 @@ export default function SearchResultRow({ result }: SearchResultRowProps) {
   const getBreadcrumb = () => {
     if (result.type === "topic") {
       const topic = result.data as TopicResult;
+      
+      // Try to get book data from multiple possible locations
+      const bookData = topic.book || topic.chapter?.book;
+      const chapterData = topic.chapter;
+      
+      if (!bookData || !chapterData) {
+        return (
+          <p className="text-sm text-slate-500 mt-0.5">
+            {topic.title}
+          </p>
+        );
+      }
+      
+      const grade = typeof bookData.grade === 'number' ? bookData.grade : parseInt(String(bookData.grade)) || 9;
+      
       return (
         <p className="text-sm text-slate-500 mt-0.5">
           {topic.chapter.book.subject} Grade {topic.chapter.book.grade} › {topic.chapter.title}
@@ -151,36 +166,28 @@ export default function SearchResultRow({ result }: SearchResultRowProps) {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex items-start gap-4 p-4 bg-white border border-slate-100 rounded-xl hover:border-emerald-200 hover:shadow-sm transition-all group"
-    >
-      <div className="flex-shrink-0 pt-0.5">{getTypeBadge()}</div>
-      
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-slate-900 group-hover:text-emerald-700 transition-colors">
-              {result.type === "topic" 
-                ? (result.data as TopicResult).title
-                : result.type === "chapter"
-                ? (result.data as ChapterResult).title
-                : (result.data as SubjectResult).name
-              }
-            </h3>
+    <Link href={getHref()}>
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className=\"group p-4 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30 transition-all duration-200\"
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                {result.data.title}
+              </h3>
+              {getTypeBadge()}
+            </div>
+            
             {getBreadcrumb()}
             {getMetadata()}
           </div>
           
-          <Link
-            href={getStudyLink()}
-            className="flex-shrink-0 inline-flex items-center px-3 py-1.5 text-sm font-medium text-emerald-700 bg-transparent border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors"
-          >
-            Study →
-          </Link>
+          <BookOpen className="h-5 w-5 text-slate-400 group-hover:text-emerald-600 transition-colors mt-0.5" />
         </div>
-      </div>
-    </motion.div>
+      </motion.div>
+    </Link>
   );
 }
