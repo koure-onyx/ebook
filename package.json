@@ -1,0 +1,22 @@
+{
+  "name": "ebook",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "student",
+    "admin",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:student\" \"npm run dev:admin\"",
+    "dev:student": "npm run dev --workspace=student",
+    "dev:admin": "npm run dev --workspace=admin",
+    "dev:backend": "npm run dev --workspace=backend",
+    "build": "npm run build --workspaces",
+    "start": "npm run start --workspaces",
+    "lint": "npm run lint --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
