@@ -217,7 +217,7 @@ export async function getDashboard() {
     stats: any;
     recent_activity: any[];
     recommendations: any[];
-  }>('GET', '/dashboard');
+  }>('GET', '/dashboard/student');
 }
 
 export async function getDashboardServer(token: string | null) {
@@ -238,7 +238,7 @@ export async function getProgress() {
     quiz_scores: any[];
     weekly_activity: any[];
     mastery_levels: Record<string, string>;
-  }>('GET', '/progress');
+  }>('GET', '/progress/stats');
 }
 
 export async function getVault() {
@@ -254,7 +254,7 @@ export async function getVaultItem(id: string) {
 }
 
 export async function saveToVault(payload: { topicId: string; type: string; content: any }) {
-  return request<any>('POST', '/vault', payload);
+  return request<any>('POST', `/vault/${payload.topicId}`, payload);
 }
 
 export async function deleteVaultItem(id: string) {
@@ -268,7 +268,7 @@ export async function getAICredits() {
     balance: number;
     monthly_limit: number;
     used_this_month: number;
-  }>('GET', '/user/credits');
+  }>('GET', '/ai/credits');
 }
 
 export async function getTopicBySlug(subjectSlug: string, chapterNumber: string, topicSlug: string) {
@@ -279,7 +279,7 @@ export async function getTopicBySlug(subjectSlug: string, chapterNumber: string,
     book: any;
     program: any;
     chapter: any;
-  }>('GET', `/topics/by-slug/${subjectSlug}/${chapterNumber}/${topicSlug}`);
+  }>('GET', `/topics/slug/${encodeURIComponent(`${subjectSlug}/${chapterNumber}/${topicSlug}`)}`);
 }
 
 export async function getTopicById(id: string) {
@@ -298,7 +298,7 @@ export async function getChapterTopics(chapterId: string) {
 }
 
 export async function generateAIExplanation(topicId: string, content: string) {
-  return streamSSE('/ai/explain', { topicId, content }, 
+  return streamSSE(`/ai/${topicId}/explain`, { topicId, content }, 
     (text) => console.log('chunk:', text),
     () => console.log('done')
   );
@@ -319,7 +319,7 @@ export async function markTopicRead(topicId: string) {
 export async function submitQuizScore(topicId: string, score: number, answers: any[]) {
   return request<{ success: boolean; xp_earned: number; mastery_status: string }>(
     'POST', 
-    '/quiz/score', 
+    `/quizzes/topic/${topicId}/submit`, 
     { topicId, score, answers }
   );
 }
