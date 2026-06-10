@@ -12,6 +12,8 @@ import {
   loadTopicBySlug,
 } from '@/lib/load-book-reader';
 import { getReaderSeoData } from '@studyvault/lib/content/getSeoData';
+import { getPublicTopicBySlug } from '@/lib/api/client';
+
 import connectDB from '@studyvault/db/connect';
 import Book from '@studyvault/db/models/Book';
 
@@ -241,10 +243,17 @@ export default async function ReaderPage({
     );
   }
 
-  const topicData = await loadTopicBySlug(topicSlug, activeSubjectSlug, chapterSlug, {
-    boardSlug: activeBoardSlug,
-    programSlug: activeProgramSlug,
-  });
+  // Try public API first, fallback to internal method
+  let topicData: any = null;
+  try {
+    topicData = await getPublicTopicBySlug(activeSubjectSlug, chapterSlug, topicSlug);
+  } catch (error) {
+    // Fallback to internal method for non-public topics
+    topicData = await loadTopicBySlug(topicSlug, activeSubjectSlug, chapterSlug, {
+      boardSlug: activeBoardSlug,
+      programSlug: activeProgramSlug,
+    });
+  }
 
   return (
     <TopicLevelReader

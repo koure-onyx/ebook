@@ -1,26 +1,30 @@
-import connectDB from '@studyvault/db/connect';
-import _Question from '@studyvault/db/models/Question';
-import _Topic from '@studyvault/db/models/Topic';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { generateQuizQuestionsServer } from '@/lib/api/client';
 import QuizEngine from '@/components/QuizEngine';
-import { getServerUser } from '@studyvault/lib/auth/server';
 import { notFound } from 'next/navigation';
-
-const Question = _Question;
-const Topic = _Topic;
 
 export default async function QuizPage({ params }: { params: Promise<{ topicId: string }> }) {
   const resolvedParams = await params;
-  
-  await connectDB();
-  const user = await getServerUser();
-  
-  const topic = await Topic.findById(resolvedParams.topicId).lean();
-  if (!topic) return notFound();
+  const session = await getServerSession(authOptions);
+  const token = (session?.user as any)?.token || null;
 
-  const questions = await Question.find({ 
-    topic_id: resolvedParams.topicId,
-    type: 'mcq'
-  }).limit(10).lean();
+  if (!session) {
+    // Redirect to signin if not authenticated
+    return notFound();
+  }
+
+  let questions: any[] = [];
+  try {
+    // Use API client to generate quiz questions
+    questions = await generateQuizQuestionsServer(token, resolvedParams.topicId);
+  } catch (error) {
+    console.error('Failed to generate quiz questions:', error);
+    // If API fails, show empty state
+    questions = [];
+  }
+
+  const topic = { _id: resolvedParams.topicId, title: 'Quiz Topic' }; // TODO: fetch topic title from API
 
   return (
     <main className="p-8 max-w-4xl mx-auto">
@@ -30,10 +34,10 @@ export default async function QuizPage({ params }: { params: Promise<{ topicId: 
       </div>
 
       {questions.length > 0 ? (
-        <QuizEngine 
-          topicId={resolvedParams.topicId} 
-          initialQuestions={JSON.parse(JSON.stringify(questions))} 
-          userId={user?._id.toString()}
+        <QuizEngine
+          topicId={resolvedParams.topicId}
+          initialQuestions={JSON.parse(JSON.stringify(questions))}
+          userId={(session.user as any)?.id || ''}
         />
       ) : (
         <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl p-12 text-center">

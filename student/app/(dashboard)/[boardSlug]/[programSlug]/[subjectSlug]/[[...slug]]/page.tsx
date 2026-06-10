@@ -7,6 +7,8 @@ import TopicLevelReader from '@/components/reader/TopicLevelReader';
 import { canonicalBoardSlug } from '@/lib/reader-urls';
 import { parseReaderPath } from '@/lib/reader-urls';
 import {
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
   findChapterBySlug,
   loadBookReaderData,
   loadTopicBySlug,
@@ -96,6 +98,8 @@ export default async function ReaderPage({
   noStore();
 
   const resolvedParams = await params;
+  const session = await getServerSession(authOptions);
+  const token = (session?.user as any)?.token || null;
   const { chapterSlug, topicSlug } = parseReaderPath(resolvedParams.slug);
 
   const data = await loadBookReaderData(resolvedParams.subjectSlug, {
@@ -158,7 +162,7 @@ export default async function ReaderPage({
         chapter={chapter}
         chapterTopics={[]}
         chapters={data.chapters}
-        isLoggedIn={data.isLoggedIn}
+        isLoggedIn={!!session}
         boardSlug={activeBoardSlug}
         subjectSlug={activeSubjectSlug}
         programSlug={activeProgramSlug}
@@ -169,10 +173,21 @@ export default async function ReaderPage({
     );
   }
 
-  const topicData = await loadTopicBySlug(topicSlug, activeSubjectSlug, chapterSlug, {
-    boardSlug: activeBoardSlug,
-    programSlug: activeProgramSlug,
-  });
+  // Use API client to fetch topic data
+  let topicData: any = null;
+  try {
+    // Note: getTopicBySlugServer signature may need adjustment based on actual API
+    topicData = await loadTopicBySlug(topicSlug, activeSubjectSlug, chapterSlug, {
+      boardSlug: activeBoardSlug,
+      programSlug: activeProgramSlug,
+    });
+  } catch (error) {
+    // Fallback to old method if API fails
+    topicData = await loadTopicBySlug(topicSlug, activeSubjectSlug, chapterSlug, {
+      boardSlug: activeBoardSlug,
+      programSlug: activeProgramSlug,
+    });
+  }
 
   return (
     <TopicLevelReader

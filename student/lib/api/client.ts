@@ -372,3 +372,12 @@ export async function getCheckoutPlans(token: string | null) {
   }
   return requestServer<any[]>('GET', '/checkout/plans', null);
 }
+
+// Additional server-side functions for pages that need them
+export async function generateQuizQuestionsServer(token: string | null, topicId: string) {
+  return requestServer<any[]>('POST', '/ai/generate-questions', token, { topicId });
+}
+
+export async function getTopicBySlugServer(token: string | null, subjectSlug: string, chapterNumber: string, topicSlug: string) {
+  return requestServer<any>('GET', `/topics/by-slug/${subjectSlug}/${chapterNumber}/${topicSlug}`, token);
+}
