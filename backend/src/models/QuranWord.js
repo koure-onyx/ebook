@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+const mongoose = require('mongoose');
 
 const QuranWordSchema = new mongoose.Schema({
   surah: { type: Number, required: true, min: 1, max: 114 },
@@ -12,4 +12,4 @@ const QuranWordSchema = new mongoose.Schema({
 
 QuranWordSchema.index({ surah: 1, ayah: 1, word_position: 1 }, { unique: true });
 
-export const QuranWord = mongoose.models.QuranWord || mongoose.model('QuranWord', QuranWordSchema);
+module.exports = mongoose.models.QuranWord || mongoose.model('QuranWord', QuranWordSchema);
