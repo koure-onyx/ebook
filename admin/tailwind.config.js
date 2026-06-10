@@ -1,5 +1,5 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
+const config = {
   content: [
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -17,35 +17,35 @@ module.exports = {
         primaryLight: 'var(--color-primary-light)',
         primaryDark: 'var(--color-primary-dark)',
         primaryForeground: 'var(--color-primary-foreground)',
-        
+
         accent: 'var(--color-accent)',
         accentLight: 'var(--color-accent-light)',
         accentDark: 'var(--color-accent-dark)',
-        
+
         bg: {
           primary: 'var(--color-bg-primary)',
           secondary: 'var(--color-bg-secondary)',
           tertiary: 'var(--color-bg-tertiary)',
         },
-        
+
         text: {
           primary: 'var(--color-text-primary)',
           secondary: 'var(--color-text-secondary)',
           muted: 'var(--color-text-muted)',
           inverse: 'var(--color-text-inverse)',
         },
-        
+
         border: {
           DEFAULT: 'var(--color-border)',
           strong: 'var(--color-border-strong)',
         },
-        
+
         // Semantic colors
         success: 'var(--color-success)',
         warning: 'var(--color-warning)',
         error: 'var(--color-error)',
         info: 'var(--color-info)',
-        
+
         // Keep existing color scales for backward compatibility
         emerald: {
           50: '#ECFDF5',
@@ -134,3 +134,5 @@ module.exports = {
   },
   plugins: [],
 };
+
+export default config;
