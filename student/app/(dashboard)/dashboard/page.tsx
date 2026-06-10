@@ -5,6 +5,10 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { StatCard, ContinueStudyingCard, StreakCard, HotTopicsCard, VaultSnapshotCard } from "@/components/dashboard/DashboardComponents";
 import { Zap, BookOpen, Trophy, Flame, Archive, TrendingUp, ChevronRight, CheckCircle2, RotateCcw, Clock } from "lucide-react";
 import { bookUrl, chapterUrl } from "@/lib/reader-urls";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { redirect } from "next/navigation";
+import { getDashboardServer } from "@/lib/api/client";
 
 // Types
 interface DashboardStats {
@@ -71,6 +75,7 @@ interface DashboardData {
   vaultItems: VaultItem[];
   recentQuizzes: QuizAttempt[];
   firstName: string;
+  welcome_message?: string;
 }
 
 // Skeleton loaders
@@ -78,123 +83,12 @@ function StatsStripSkeleton() {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="bg-white border border-slate-100 rounded-xl p-4">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-slate-200 rounded-lg animate-pulse" />
-            <div className="flex-1">
-              <div className="h-8 bg-slate-200 rounded w-16 mb-2 animate-pulse" />
-              <div className="h-3 bg-slate-200 rounded w-20 animate-pulse" />
-            </div>
-          </div>
+        <div key={i} className="bg-white border border-slate-100 rounded-2xl p-4">
+          <Skeleton className="w-8 h-8 mb-2" />
+          <Skeleton className="w-16 h-4 mb-1" />
+          <Skeleton className="w-24 h-3" />
         </div>
       ))}
-    </div>
-  );
-}
-
-function ContinueStudyingSkeleton() {
-  return (
-    <div className="bg-white border border-slate-100 rounded-2xl p-6">
-      <div className="h-6 bg-slate-200 rounded w-48 mb-4 animate-pulse" />
-      <div className="space-y-4">
-        {[1, 2].map((i) => (
-          <div key={i} className="border border-slate-100 rounded-xl p-4">
-            <div className="h-4 bg-slate-200 rounded w-32 mb-2 animate-pulse" />
-            <div className="h-5 bg-slate-200 rounded w-48 mb-3 animate-pulse" />
-            <div className="h-2 bg-slate-200 rounded w-full animate-pulse" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function StreakCardSkeleton() {
-  return (
-    <div className="bg-white border border-slate-100 rounded-2xl p-6">
-      <div className="h-6 bg-slate-200 rounded w-32 mb-4 animate-pulse" />
-      <div className="h-3 bg-slate-200 rounded w-full mb-2 animate-pulse" />
-      <div className="h-3 bg-slate-200 rounded w-24 mb-4 animate-pulse" />
-      <div className="h-5 bg-slate-200 rounded w-36 mb-3 animate-pulse" />
-      <div className="flex gap-1">
-        {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-          <div key={i} className="w-6 h-6 bg-slate-200 rounded-full animate-pulse" />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function BooksRowSkeleton() {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <div className="h-6 bg-slate-200 rounded w-32 animate-pulse" />
-        <div className="h-4 bg-slate-200 rounded w-20 animate-pulse" />
-      </div>
-      <div className="flex gap-4 overflow-hidden">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="w-40 flex-shrink-0 bg-white border border-slate-100 rounded-xl p-4">
-            <div className="w-10 h-10 bg-slate-200 rounded-lg mb-3 animate-pulse" />
-            <div className="h-4 bg-slate-200 rounded w-full mb-2 animate-pulse" />
-            <div className="h-3 bg-slate-200 rounded w-24 mb-4 animate-pulse" />
-            <div className="h-2 bg-slate-200 rounded w-full animate-pulse" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function HotTopicsSkeleton() {
-  return (
-    <div className="bg-white border border-slate-100 rounded-2xl p-6">
-      <div className="h-6 bg-slate-200 rounded w-40 mb-4 animate-pulse" />
-      <div className="space-y-3">
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="flex items-center gap-3 py-2">
-            <div className="w-4 h-4 bg-slate-200 rounded animate-pulse" />
-            <div className="flex-1">
-              <div className="h-4 bg-slate-200 rounded w-32 mb-1 animate-pulse" />
-              <div className="h-3 bg-slate-200 rounded w-24 animate-pulse" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function VaultSkeleton() {
-  return (
-    <div className="bg-white border border-slate-100 rounded-2xl p-6">
-      <div className="h-6 bg-slate-200 rounded w-28 mb-4 animate-pulse" />
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="py-2">
-            <div className="h-4 bg-slate-200 rounded w-40 mb-2 animate-pulse" />
-            <div className="h-5 bg-slate-200 rounded w-20 animate-pulse" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function QuizActivitySkeleton() {
-  return (
-    <div className="bg-white border border-slate-100 rounded-2xl p-6">
-      <div className="h-6 bg-slate-200 rounded w-36 mb-4 animate-pulse" />
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center gap-4 py-2">
-            <div className="h-4 bg-slate-200 rounded w-32 animate-pulse" />
-            <div className="h-4 bg-slate-200 rounded w-12 animate-pulse" />
-            <div className="h-4 bg-slate-200 rounded w-20 animate-pulse" />
-            <div className="h-4 bg-slate-200 rounded w-16 ml-auto animate-pulse" />
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -206,16 +100,23 @@ function getGreeting(firstName: string): string {
   return `Good evening, ${firstName}.`;
 }
 
+// Main dashboard content component
+async function DashboardContent() {
+  const session = await getServerSession(authOptions);
+  
+  if (!session) {
+    redirect('/api/auth/signin');
+  }
 
-// Data fetching functions (server-side)
-async function getDashboardData(): Promise<DashboardData> {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/dashboard`, {
-    cache: 'no-store',
-  });
-
-  if (!res.ok) {
+  const token = (session.user as any)?.token || null;
+  let data: DashboardData | null = null;
+  
+  try {
+    data = await getDashboardServer(token);
+  } catch (error) {
+    console.error('Failed to fetch dashboard:', error);
     // Return empty state on error
-    return {
+    data = {
       books: [],
       recentChapters: [],
       stats: {
@@ -232,122 +133,99 @@ async function getDashboardData(): Promise<DashboardData> {
       vaultItems: [],
       recentQuizzes: [],
       firstName: 'Student',
+      welcome_message: 'Welcome back!',
     };
   }
 
-  const json = await res.json();
-  return json.data;
-}
-
-// Main dashboard content component
-async function DashboardContent() {
-  const data = await getDashboardData();
+  const firstName = data.firstName || 'Student';
+  const greeting = data.welcome_message || getGreeting(firstName);
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-1">
-          {getGreeting(data.firstName)}
+          {greeting}
         </h1>
-        <p className="text-slate-500">Here&apos;s where you left off.</p>
+        <p className="text-slate-500 text-sm">Here's what's happening with your studies today.</p>
       </div>
 
       {/* Row 1: Stats Strip */}
-      <section aria-label="Dashboard Statistics">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            icon={<Trophy className="w-5 h-5 text-emerald-600" aria-hidden="true" />}
-            label="Exam Readiness"
-            value={`${data.stats.examReadiness}%`}
-            delay={0}
-          />
-          <StatCard
-            icon={<BookOpen className="w-5 h-5 text-emerald-600" aria-hidden="true" />}
-            label="Topics Mastered"
-            value={data.stats.topicsMastered.toString()}
-            delay={0.05}
-          />
-          <StatCard
-            icon={<Zap className="w-5 h-5 text-emerald-600" aria-hidden="true" />}
-            label="XP This Week"
-            value={`${data.stats.xpThisWeek} XP`}
-            delay={0.1}
-          />
-          <StatCard
-            icon={<TrendingUp className="w-5 h-5 text-emerald-600" aria-hidden="true" />}
-            label="Current Level"
-            value={`Level ${data.stats.currentLevel}`}
-            delay={0.15}
-          />
-        </div>
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-label="Key Statistics">
+        <StatCard
+          icon={<Zap className="w-5 h-5 text-amber-500" />}
+          label="Exam Readiness"
+          value={`${data.stats.examReadiness}%`}
+          subtext={`Level ${data.stats.currentLevel}`}
+        />
+        <StatCard
+          icon={<BookOpen className="w-5 h-5 text-emerald-500" />}
+          label="Topics Mastered"
+          value={data.stats.topicsMastered.toString()}
+          subtext={`${data.stats.xpThisWeek} XP this week`}
+        />
+        <StatCard
+          icon={<Trophy className="w-5 h-5 text-indigo-500" />}
+          label="Current Level"
+          value={data.stats.currentLevel.toString()}
+          subtext={`${data.stats.xpToNextLevel} XP to next`}
+        />
+        <StreakCard days={data.stats.streakDays} studiedDays={data.stats.studiedDays} />
       </section>
 
-      {/* Row 2: Continue Studying + Streak Card */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6" aria-label="Study Progress">
-        <div className="lg:col-span-2">
-          <ContinueStudyingCard chapters={data.recentChapters} />
-        </div>
-        <div>
-          <StreakCard
-            xpThisWeek={data.stats.xpThisWeek}
-            xpToNextLevel={data.stats.xpToNextLevel}
-            streakDays={data.stats.streakDays}
-            topicsStudied={data.stats.topicsStudied}
-            studiedDays={data.stats.studiedDays}
-          />
-        </div>
+      {/* Row 2: Continue Studying */}
+      <section aria-label="Continue Studying">
+        <ContinueStudyingCard chapters={data.recentChapters} />
       </section>
 
-      {/* Row 3: Your Books */}
+      {/* Row 3: Books Overview */}
       <section aria-label="Your Books">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-emerald-600" />
-            Your Books
-          </h2>
-          <a href="/books" className="text-sm text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-1">
-            View All <ChevronRight className="w-4 h-4" />
-          </a>
-        </div>
-        <div className="flex gap-4 overflow-x-auto snap-x pb-2">
-          {data.books.map((book) => {
-            const progress = book.topicsRead ? Math.round((book.topicsRead / book.total_topics) * 100) : 0;
-            return (
-              <div
-                key={book._id}
-                className="w-40 flex-shrink-0 bg-white border border-slate-100 rounded-xl p-4 snap-start hover:shadow-md transition-shadow"
-              >
-                <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center mb-3">
-                  <BookOpen className="w-5 h-5 text-emerald-600" aria-hidden="true" />
-                </div>
-                <h3 className="font-semibold text-slate-800 text-sm mb-1 line-clamp-2">{book.title}</h3>
-                <p className="text-xs text-slate-500 mb-3">
-                  {book.program_name} · {book.board}
-                </p>
-                <div className="mb-2">
-                  <div className="flex justify-between text-xs text-slate-500 mb-1">
-                    <span>{book.topicsRead || 0} / {book.total_topics}</span>
+        <div className="bg-white border border-slate-100 rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-800">Your Books</h2>
+            <a href="/books" className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
+              View all →
+            </a>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {data.books.slice(0, 6).map((book) => {
+              const progress = book.topicsRead ? Math.round((book.topicsRead / book.total_topics) * 100) : 0;
+              return (
+                <div key={book._id} className="border border-slate-100 rounded-xl p-4 hover:border-emerald-200 transition-colors">
+                  <div className="flex items-start gap-3 mb-3">
+                    {book.subject_icon && (
+                      <span className="text-2xl">{book.subject_icon}</span>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-slate-800 truncate">{book.title}</h3>
+                      <p className="text-xs text-slate-500">{book.subject} • {book.program_name}</p>
+                    </div>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                    <div
-                      className="bg-emerald-600 h-full rounded-full transition-all"
-                      style={{ width: `${progress}%` }}
-                    />
+                  <div className="mb-2">
+                    <div className="flex justify-between text-xs text-slate-500 mb-1">
+                      <span>Progress</span>
+                      <span>{progress}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2">
+                      <div
+                        className="bg-gradient-to-r from-emerald-500 to-teal-500 h-2 rounded-full transition-all"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
                   </div>
+                  <a
+                    href={bookUrl(book.subject_slug, {
+                      boardSlug: book.board_short_code || book.board_slug,
+                      programSlug: book.program_slug,
+                    })}
+                    className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium"
+                  >
+                    Open <ChevronRight className="w-3 h-3" />
+                  </a>
                 </div>
-                <a
-                  href={bookUrl(book.subject_slug, {
-                    boardSlug: book.board_short_code || book.board_slug,
-                    programSlug: book.program_slug,
-                  })}
-                  className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium"
-                >
-                  Open <ChevronRight className="w-3 h-3" />
-                </a>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </section>
 

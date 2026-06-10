@@ -1,88 +1,48 @@
 import { Suspense } from 'react';
 import { BookOpen, Library } from 'lucide-react';
-import connectDB from '@studyvault/db/connect';
-import Book from '@studyvault/db/models/Book';
-import '@studyvault/db/models/Program';
-import '@studyvault/db/models/Board';
-import { getUser } from '@studyvault/lib/auth/server';
-import { buildBookFilter, resolveUserContentProfile } from '@studyvault/lib/content/bookFilter';
 import { BooksGrid } from '@/components/books/BooksGrid';
+import { getBooksServer } from '@/lib/api/client';
 
 export const dynamic = 'force-dynamic';
 
-interface RawBook {
-  _id: any;
+interface Book {
+  _id: string;
   title: string;
   subject: string;
-  subject_slug?: string;
-  slug: string;
+  board: string;
   grade: number;
-  board_id?: {
-    name: string;
-    short_code?: string;
-    slug?: string;
-  };
-  program_id?: {
-    slug?: string;
-  };
-  metadata?: {
-    grade_level?: string;
-    edition?: string;
-  };
-  chapters?: number;
-  topics?: number;
-  isDraft?: boolean;
+  edition: string;
+  chapters: number;
+  topics: number;
+  subject_icon?: string;
+  program_name?: string;
+  board_short_code?: string;
+  board_slug?: string;
+  program_slug?: string;
+  subject_slug?: string;
 }
 
-async function fetchBooksData() {
-  await connectDB();
-  const user = await getUser();
-  const profile = user ? await resolveUserContentProfile(user) : null;
-  const filter = profile ? buildBookFilter(profile) : { is_current_edition: { $ne: false } };
-
-  const books = await Book
-    .find(filter)
-    .sort({ title: 1 })
-    .populate('program_id', 'name slug')
-    .populate('board_id', 'name short_code slug')
-    .select('title subject subject_slug grade slug program_id board_id subject metadata chapters topics isDraft')
-    .lean();
-
-  // Transform to format expected by BooksGrid
-  return books.map((book: RawBook) => ({
-    _id: book._id.toString(),
-    title: book.title,
-    subject: book.subject || 'General',
-    board: book.board_id?.name || book.metadata?.grade_level || 'Unknown Board',
-    grade: book.grade || parseInt(book.metadata?.grade_level || '9'),
-    edition: book.metadata?.edition || '2024',
-    chapters: book.chapters || 0,
-    topics: book.topics || 0,
-    isDraft: book.isDraft || false,
-    slug: book.slug,
-    subject_slug: book.subject_slug,
-    board_short_code: book.board_id?.short_code,
-    board_slug: book.board_id?.short_code || book.board_id?.slug,
-    program_slug: book.program_id?.slug,
-  }));
+async function fetchBooksData(): Promise<Book[]> {
+  try {
+    // No token needed - books are public
+    const books = await getBooksServer(null);
+    return books;
+  } catch (error) {
+    console.error('Failed to fetch books:', error);
+    return [];
+  }
 }
 
 function LoadingSkeleton() {
   return (
-    <div className="space-y-8">
-      {/* Header Skeleton */}
-      <div className="space-y-2">
-        <div className="h-8 w-32 bg-slate-200 rounded animate-pulse" />
-        <div className="h-4 w-64 bg-slate-100 rounded animate-pulse" />
-      </div>
-      
+    <div className="space-y-6">
       {/* Filter Bar Skeleton */}
       <div className="flex flex-wrap gap-3">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="h-10 w-32 bg-slate-100 rounded-lg animate-pulse" />
         ))}
       </div>
-      
+
       {/* Grid Skeleton */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -102,7 +62,7 @@ function LoadingSkeleton() {
 
 async function BooksContent() {
   const books = await fetchBooksData();
-  
+
   if (books.length === 0) {
     return (
       <div className="text-center py-16">
@@ -116,7 +76,7 @@ async function BooksContent() {
       </div>
     );
   }
-  
+
   return <BooksGrid books={books} />;
 }
 
@@ -130,7 +90,7 @@ export default async function BooksPage() {
           Your curriculum, organized by board and grade.
         </p>
       </div>
-      
+
       {/* Main Content with Suspense */}
       <Suspense fallback={<LoadingSkeleton />}>
         <BooksContent />

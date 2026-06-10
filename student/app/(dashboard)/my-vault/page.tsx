@@ -4,119 +4,125 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { BookOpen, Filter, Library, Search } from 'lucide-react';
-import Link from 'next/link';
-import connectDB from '@studyvault/db/connect';
-import _Book from '@studyvault/db/models/Book';
-import '@studyvault/db/models/Program';
-import '@studyvault/db/models/Board';
-import { getUser } from '@studyvault/lib/auth/server';
-import { buildBookFilter, resolveUserContentProfile } from '@studyvault/lib/content/bookFilter';
-import { bookUrl } from '@/lib/reader-urls';
-
-const Book = _Book;
+import { BookOpen, Filter, Library, Search, Archive, FileText, BrainCircuit, Bookmark } from 'lucide-react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { redirect } from 'next/navigation';
+import { getVaultServer } from '@/lib/api/client';
 
 export const dynamic = 'force-dynamic';
 
-export default async function MyVaultPage({ searchParams }: { searchParams: { programId?: string, boardId?: string } }) {
-  await connectDB();
-  const user = await getUser();
+interface VaultItem {
+  _id: string;
+  topicTitle: string;
+  itemType: 'flashcard' | 'bookmark' | 'note' | 'highlight';
+  content?: any;
+  createdAt: string;
+  topicId?: string;
+}
 
-  const contentProfile = user ? await resolveUserContentProfile(user) : null;
-  const bookFilter = contentProfile ? buildBookFilter(contentProfile) : { is_live: true };
+interface VaultData {
+  user_id: string;
+  items_count: number;
+  items: VaultItem[];
+}
 
-  const books = await Book.find(bookFilter)
-    .sort({ title: 1 })
-    .populate('program_id', 'name slug')
-    .populate('board_id', 'name short_code slug')
-    .select('title subject_slug grade slug program_id board_id')
-    .lean();
+async function VaultContent() {
+  const session = await getServerSession(authOptions);
+  
+  if (!session) {
+    redirect('/api/auth/signin');
+  }
 
-  const totalBooks = books.length;
+  const token = (session.user as any)?.token || null;
+  let data: VaultData | null = null;
+
+  try {
+    data = await getVaultServer(token);
+  } catch (error) {
+    console.error('Failed to fetch vault:', error);
+    data = {
+      user_id: '',
+      items_count: 0,
+      items: [],
+    };
+  }
+
+  // Group items by type
+  const flashcards = data.items.filter(item => item.itemType === 'flashcard');
+  const notes = data.items.filter(item => item.itemType === 'note');
+  const bookmarks = data.items.filter(item => item.itemType === 'bookmark');
+  const highlights = data.items.filter(item => item.itemType === 'highlight');
+
+  const getItemIcon = (type: string) => {
+    switch (type) {
+      case 'flashcard': return <BrainCircuit className="w-5 h-5 text-purple-500" />;
+      case 'note': return <FileText className="w-5 h-5 text-blue-500" />;
+      case 'bookmark': return <Bookmark className="w-5 h-5 text-amber-500" />;
+      case 'highlight': return <BookOpen className="w-5 h-5 text-emerald-500" />;
+      default: return <Archive className="w-5 h-5 text-slate-500" />;
+    }
+  };
+
+  const renderVaultItem = (item: VaultItem) => (
+    <Card key={item._id} className="p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-start gap-3">
+        {getItemIcon(item.itemType)}
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-slate-800 truncate">{item.topicTitle}</h3>
+          <p className="text-xs text-slate-500 capitalize">{item.itemType}</p>
+          <p className="text-xs text-slate-400 mt-1">
+            {new Date(item.createdAt).toLocaleDateString()}
+          </p>
+        </div>
+      </div>
+    </Card>
+  );
 
   return (
     <AppShell>
-      <PageContainer title="My Library" description="Your collection of official board textbooks and study materials.">
+      <PageContainer title="My Vault" description="Your saved flashcards, notes, and highlights.">
         <div className="space-y-6">
-          {/* Search and Filter Bar */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted" />
-              <Input 
-                placeholder="Search books..." 
-                className="pl-10"
-                type="search"
-              />
-            </div>
-            <Button variant="outline" className="shrink-0">
-              <Filter className="w-4 h-4 mr-2" /> 
-              Filter
-            </Button>
+          {/* Stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="p-4">
+              <div className="text-2xl font-bold text-slate-900">{data.items_count}</div>
+              <div className="text-sm text-slate-500">Total Items</div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-2xl font-bold text-purple-600">{flashcards.length}</div>
+              <div className="text-sm text-slate-500">Flashcards</div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-2xl font-bold text-blue-600">{notes.length}</div>
+              <div className="text-sm text-slate-500">Notes</div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-2xl font-bold text-amber-600">{bookmarks.length + highlights.length}</div>
+              <div className="text-sm text-slate-500">Bookmarks</div>
+            </Card>
           </div>
 
-          {/* Navigation Tabs */}
-          <div className="flex gap-2 border-b border-border">
-            <button className="px-4 py-2 text-sm font-medium text-primary border-b-2 border-primary -mb-px">
-              All Books ({totalBooks})
-            </button>
-            <button className="px-4 py-2 text-sm font-medium text-text-muted hover:text-text-primary transition-colors">
-              Recently Read
-            </button>
-          </div>
-
-          {/* Books Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {books.map((book: any) => (
-              <Link
-                key={book._id.toString()}
-                href={bookUrl(book.subject_slug || 'subject', { boardSlug: book.board_id?.short_code || book.board_id?.slug, programSlug: book.program_id?.slug })}
-                className="block group"
-              >
-                <Card className="h-full overflow-hidden hover:shadow-md transition-shadow">
-                  <div className="h-32 bg-bg-tertiary p-4 flex flex-col justify-end relative">
-                    <span className="text-xs font-semibold text-text-secondary bg-bg-secondary px-2 py-1 rounded self-start">
-                      {book.board_id?.name || 'Board'}
-                    </span>
-                    <h3 className="font-bold text-lg text-text-primary leading-tight mt-2 line-clamp-2">
-                      {book.title}
-                    </h3>
-                  </div>
-                  <div className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-medium text-text-secondary bg-bg-secondary px-2 py-1 rounded">
-                        {book.program_id?.name || 'Program'}
-                      </span>
-                      <span className="text-xs text-text-muted">
-                        {book.metadata?.language === 'urdu' ? 'Urdu' : 'English'}
-                      </span>
-                    </div>
-                    <div className="space-y-2 mb-4">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-text-muted">Chapters</span>
-                        <span className="font-semibold text-text-secondary">{book.total_chapters || 0}</span>
-                      </div>
-                    </div>
-                    <Button variant="primary" size="sm" className="w-full group-hover:bg-primary-dark transition-colors">
-                      Open Book
-                    </Button>
-                  </div>
-                </Card>
-              </Link>
-            ))}
-
-            {books.length === 0 && (
-              <div className="col-span-full text-center py-12 bg-bg-secondary border border-dashed rounded-lg border-border">
-                <Library className="w-12 h-12 text-text-muted mx-auto mb-4" />
-                <h3 className="text-lg font-bold text-text-primary mb-2">No Books Found</h3>
-                <p className="text-text-secondary text-sm">
-                  We couldn&apos;t find any books for {contentProfile.gradeName || 'your grade'}
-                  {contentProfile.boardName ? ` (${contentProfile.boardName})` : ''}.
-                </p>
+          {/* All Items */}
+          <section>
+            <h2 className="text-lg font-semibold text-slate-800 mb-4">All Items</h2>
+            {data.items.length === 0 ? (
+              <Card className="p-8 text-center">
+                <Archive className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-500">Your vault is empty. Start saving content while studying!</p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {data.items.map(renderVaultItem)}
               </div>
             )}
-          </div>
+          </section>
         </div>
       </PageContainer>
     </AppShell>
   );
+}
+
+export default async function MyVaultPage() {
+  return <VaultContent />;
 }
