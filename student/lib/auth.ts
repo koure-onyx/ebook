@@ -2,6 +2,8 @@ import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+
 export const authOptions: NextAuthOptions = {
   providers: [
     // ── TEMPORARY DEV PROVIDER — delete this block before production ──
@@ -16,9 +18,8 @@ export const authOptions: NextAuthOptions = {
             },
             async authorize(credentials) {
               const email = credentials?.email || 'dev@studyvault.pk';
-              const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
               try {
-                const res = await fetch(`${apiUrl}/auth/dev-login`, {
+                const res = await fetch(`${API_URL}/auth/dev-login`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ email, name: 'Dev User' }),
@@ -29,7 +30,14 @@ export const authOptions: NextAuthOptions = {
                 }
                 const data = await res.json();
                 const token = data.data?.tokens?.accessToken || data.data?.token;
-                return { id: email, email, name: 'Dev User', backendToken: token };
+                const user = data.data?.user;
+                return { 
+                  id: user?._id || email, 
+                  email, 
+                  name: user?.name || 'Dev User',
+                  role: user?.role || 'student',
+                  backendToken: token 
+                };
               } catch (e) {
                 console.error('[dev-login] Backend unreachable:', e);
                 return null;
@@ -53,7 +61,7 @@ export const authOptions: NextAuthOptions = {
     async signIn({ account, profile }) {
       if (account?.provider === 'google' && profile) {
         try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/auth/google`, {
+          const res = await fetch(`${API_URL}/auth/google`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -70,7 +78,9 @@ export const authOptions: NextAuthOptions = {
           }
 
           const data = await res.json();
+          const user = data.data?.user;
           (account as any).backendToken = data.data?.tokens?.accessToken || data.data?.token || data.token;
+          (account as any).userRole = user?.role || 'student';
           return true;
         } catch (error) {
           console.error('Google sign-in error:', error);
@@ -84,9 +94,15 @@ export const authOptions: NextAuthOptions = {
       if ((account as any)?.backendToken) {
         token.backendToken = (account as any).backendToken;
       }
-      // dev-login puts backendToken directly on user
       if ((user as any)?.backendToken) {
         token.backendToken = (user as any).backendToken;
+      }
+      // Store role in token
+      if ((account as any)?.userRole) {
+        token.role = (account as any).userRole;
+      }
+      if ((user as any)?.role) {
+        token.role = (user as any).role;
       }
       return token;
     },
@@ -94,8 +110,12 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       session.user.id = (token.sub || '') as string;
       (session.user as any).token = token.backendToken;
+      (session.user as any).role = token.role || 'student';
       return session;
     },
+  },
+  pages: {
+    signIn: '/api/auth/signin',
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
