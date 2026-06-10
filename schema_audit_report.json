@@ -1,0 +1,25 @@
+{
+  "total_mismatches": 5,
+  "mismatches": [
+    {
+      "component": "Frontend Component",
+      "issue": "ContentBlockRenderer.tsx: No renderer for 'mcq'"
+    },
+    {
+      "component": "Frontend Component",
+      "issue": "ContentBlockRenderer.tsx: No renderer for 'question'"
+    },
+    {
+      "component": "Frontend Component",
+      "issue": "ContentBlockRenderer.tsx: No renderer for 'problem'"
+    },
+    {
+      "component": "Frontend Component",
+      "issue": "ContentBlockRenderer.tsx: No renderer for 'summary_point'"
+    },
+    {
+      "component": "Slug Generation",
+      "issue": "slug.js: No explicit Quran slug format (surah-[n]-ayah-[range])"
+    }
+  ]
+}
