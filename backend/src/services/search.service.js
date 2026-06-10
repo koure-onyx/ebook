@@ -1,7 +1,7 @@
 import { Book } from '../models/Book.js';
 import { Topic } from '../models/Topic.js';
 import { Chapter } from '../models/Chapter.js';
-import { QuranVerse } from '../models/QuranVerse.js';
+import  QuranVerse  from '../models/QuranVerse.js';
 import { Program } from '../models/Program.js';
 
 /**

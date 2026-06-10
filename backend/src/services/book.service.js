@@ -157,18 +157,44 @@ export async function getBooksForUser(user = null, additionalFilters = {}) {
   // Merge additional filters
   filter = { ...filter, ...additionalFilters };
 
-  const books = await Book.find(filter)
-    .sort({ title: 1 })
-    .populate('board_id', 'name short_code')
-    .populate('program_id', 'name slug')
-    .lean();
+  const books = await Book.aggregate([
+    { $match: filter },
+    { $lookup: { from: 'chapters', localField: '_id', foreignField: 'book_id', as: 'chapters' } },
+    { $lookup: { from: 'topics', localField: '_id', foreignField: 'book_id', as: 'topics' } },
+    {
+      $addFields: {
+        chapter_count: { $size: '$chapters' },
+        total_topics: { $size: '$topics' }
+      }
+    },
+    {
+      $project: {
+        topics: 0,
+        // Keep chapters but maybe exclude some fields if they are too heavy
+        'chapters.content': 0, 
+        'chapters.raw_text': 0
+      }
+    },
+    { $sort: { title: 1 } }
+  ]);
+
+  // Manually populate board_id and program_id since aggregate doesn't do it automatically like populate()
+  const populatedBooks = await Promise.all(books.map(async (book) => {
+    if (book.board_id) {
+      book.board_id = await Board.findById(book.board_id).select('name short_code').lean();
+    }
+    if (book.program_id) {
+      book.program_id = await Program.findById(book.program_id).select('name slug').lean();
+    }
+    return book;
+  }));
 
   // Sanitize for unauthenticated users
   if (!user) {
-    return books.map(sanitizeBookForPublic);
+    return populatedBooks.map(sanitizeBookForPublic);
   }
 
-  return books;
+  return populatedBooks;
 }
 
 /**

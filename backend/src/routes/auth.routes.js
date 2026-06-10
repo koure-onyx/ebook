@@ -1,24 +1,19 @@
-import { Router } from 'express';
+import express from 'express';
+const router = express.Router();
 import * as authController from '../controllers/auth.controller.js';
-import { requireAuth } from '../middleware/auth.js';
-import { authLimiter } from '../middleware/rateLimit.js';
+// import { validateLogin } from '../middleware/validation.middleware.js';
 
-const router = Router();
+// POST /api/auth/login - Admin & Student Login
+router.post('/login', authController.login);
 
-// Google OAuth only - no email/password auth
-router.post('/google', authLimiter, authController.googleAuth);
+// GET /api/auth/getMe - Get current user profile
+router.get('/getMe', authController.getMe);
 
-// Protected routes
-router.get('/me', requireAuth, authController.getMe);
-router.post('/onboarding', requireAuth, authController.completeOnboarding);
-
-// Logout (works with or without auth)
+// POST /api/auth/logout - Logout (optional, mostly client-side token removal)
 router.post('/logout', authController.logout);
 
-// ── DEV ONLY — delete before production ─────────────────────────────────────
-if (process.env.NODE_ENV === 'development') {
-  router.post('/dev-login', authController.devLogin);
-}
-// ── END DEV ONLY ──────────────────────────────────────────────────
+router.post('/onboarding', authController.completeOnboarding);
+
+router.post('/dev-login', authController.devLogin); // DEV ONLY - remove before production   
 
 export default router;

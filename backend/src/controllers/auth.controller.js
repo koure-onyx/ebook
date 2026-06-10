@@ -1,6 +1,16 @@
+import jwt from 'jsonwebtoken';
 import { success, error } from '../utils/apiResponse.js';
 import * as authService from '../services/auth.service.js';
 import { User } from '../models/User.js';
+import { env } from '../config/env.js';
+
+const ADMIN_USER = {
+  id: '600000000000000000000001', // Valid-ish ObjectId for dummy admin
+  email: 'admin@studyvault.pk',
+  password: 'admin123',
+  name: 'Admin User',
+  role: 'admin'
+};
 
 /**
  * POST /auth/google - Google OAuth login/register with credential
@@ -133,15 +143,23 @@ export async function devLogin(req, res, next) {
     const { email = 'dev@studyvault.pk', name = 'Dev User' } = req.body;
 
     let user = await User.findOne({ email: email.toLowerCase() });
+    const isEmailAdmin = email.toLowerCase().includes('admin');
+    console.log(`[AUTH] devLogin for ${email}, isEmailAdmin: ${isEmailAdmin}`);
+
     if (!user) {
+      console.log(`[AUTH] Creating new dev user for ${email} with role ${isEmailAdmin ? 'admin' : 'student'}`);
       user = await User.create({
         name,
         email: email.toLowerCase(),
         google_id: 'dev-' + email.split('@')[0],
         is_verified: true,
-        role: 'student',
+        role: isEmailAdmin ? 'admin' : 'student',
         student_profile: { onboarding_completed: false },
       });
+    } else if (isEmailAdmin && user.role !== 'admin') {
+      console.log(`[AUTH] Upgrading existing user ${email} to admin`);
+      user.role = 'admin';
+      await user.save();
     }
 
     const tokens = authService.generateTokenPair(user);
@@ -150,4 +168,51 @@ export async function devLogin(req, res, next) {
     next(err);
   }
 }
+
+export const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Check credentials against hardcoded admin
+    if (email === ADMIN_USER.email && password === ADMIN_USER.password) {
+      let user = await User.findOne({ email: ADMIN_USER.email });
+      if (!user) {
+        user = await User.create({
+          name: ADMIN_USER.name,
+          email: ADMIN_USER.email,
+          role: 'admin',
+          is_verified: true,
+          google_id: 'admin-hardcoded'
+        });
+      } else if (user.role !== 'admin') {
+        user.role = 'admin';
+        await user.save();
+      }
+
+      const tokens = authService.generateTokenPair(user);
+
+      return res.json(success({
+        user: {
+          id: user._id,
+          email: user.email,
+          name: user.name,
+          role: user.role
+        },
+        tokens
+      }, 'Admin login successful'));
+    }
+
+    return res.status(401).json({
+      success: false,
+      error: { code: 'INVALID_CREDENTIALS', message: 'Invalid email or password. Try admin@studyvault.pk / admin123' }
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      error: { code: 'SERVER_ERROR', message: 'Internal server error' }
+    });
+  }
+};
 // ── END DEV ONLY ─────────────────────────────────────────────────────────────

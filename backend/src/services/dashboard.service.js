@@ -159,7 +159,18 @@ export async function getAdminMetrics() {
     { $limit: 6 },
   ]);
 
-  return { overview: { totalUsers, totalBooks, totalTopics, activeSubscriptions }, recentUsers, booksBySubject, userGrowth };
+  return {
+    total_users: totalUsers,
+    total_books: totalBooks,
+    total_topics: totalTopics,
+    active_subscriptions: activeSubscriptions,
+    total_chapters: 0, // Placeholder if not counted yet
+    active_users_today: 0, // Placeholder
+    ingestion_queue_length: 0, // Placeholder
+    recentUsers,
+    booksBySubject,
+    userGrowth
+  };
 }
 
 /**
@@ -182,7 +193,9 @@ export async function getContentHealth() {
   ]);
 
   return {
-    booksWithoutChapters: booksWithoutChapters[0]?.count || 0,
-    topicsWithoutContent: topicsWithoutContent[0]?.count || 0,
+    books_with_no_chapters: booksWithoutChapters[0]?.count || 0,
+    chapters_with_no_topics: 0, // Placeholder
+    topics_with_no_content: topicsWithoutContent[0]?.count || 0,
+    orphaned_topics: 0 // Placeholder
   };
 }

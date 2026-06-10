@@ -4,9 +4,10 @@
  * Compatible with DeepSeek schema
  */
 
-const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-const path = require('path');
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+import path from 'path';
+
 
 // Load environment
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
@@ -15,8 +16,8 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/studyvault';
 
 // Import models using CommonJS
-const Board = require('../src/models/Board.js');
-const Program = require('../src/models/Program.js');
+import Board from '../src/models/Board.js';
+import Program from '../src/models/Program.js';
 const Book = require('../src/models/Book.js');
 const Chapter = require('../src/models/Chapter.js');
 const Topic = require('../src/models/Topic.js');

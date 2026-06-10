@@ -72,10 +72,8 @@ const UserSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes for query performance
-UserSchema.index({ google_id: 1 });
 UserSchema.index({ role: 1 });
 UserSchema.index({ 'subscription.plan': 1 });
 UserSchema.index({ board: 1, grade: 1 });
-UserSchema.index({ email: 1 });
 
 export const User = mongoose.models.User || mongoose.model('User', UserSchema);

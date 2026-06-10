@@ -4,7 +4,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
-
+import authRoutes from './routes/auth.routes.js';
 import { env } from './config/env.js';
 import routes from './routes/index.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -40,6 +40,7 @@ if (env.NODE_ENV === 'development') {
 
 // API Routes
 app.use('/api/v1', routes);
+app.use('/auth/api/v1', authRoutes)
 
 // Root endpoint
 app.get('/', (req, res) => {

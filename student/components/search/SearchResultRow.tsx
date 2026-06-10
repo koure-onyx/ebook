@@ -170,7 +170,7 @@ export default function SearchResultRow({ result }: SearchResultRowProps) {
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className=\"group p-4 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30 transition-all duration-200\"
+        className= "group p-4 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30 transition-all duration-200\"
       >
         <div className="flex items-start justify-between">
           <div className="flex-1">

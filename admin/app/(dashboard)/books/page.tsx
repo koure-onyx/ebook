@@ -24,10 +24,12 @@ type Book = {
   edition_year: number;
   is_live: boolean;
   total_chapters?: number;
+  chapter_count?: number;
   total_topics?: number;
   program_id?: { name?: string; slug?: string };
   board_id?: { name?: string; short_code?: string };
-  chapters: Chapter[];
+  chapters?: Chapter[];
+  slug?: string;
 };
 
 export default function ManageBooksPage() {
@@ -245,7 +247,7 @@ export default function ManageBooksPage() {
                         </span>
                         <span className="flex flex-wrap gap-2 mt-3 text-xs">
                           <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-700">
-                            {book.chapters.length} chapters
+                            {book.chapter_count ?? book.chapters?.length ?? 0} chapters
                           </span>
                           <span className="px-2 py-1 rounded-full bg-slate-100 text-slate-700">
                             {book.total_topics || 0} topics
@@ -322,7 +324,7 @@ export default function ManageBooksPage() {
 
                   {isExpanded && (
                     <div className="border-t border-slate-100 bg-slate-50/70">
-                      {book.chapters.length === 0 ? (
+                      {!book.chapters || book.chapters.length === 0 ? (
                         <div className="px-6 py-6 text-sm text-slate-500">No chapters in this book.</div>
                       ) : (
                         <div className="divide-y divide-slate-200">
