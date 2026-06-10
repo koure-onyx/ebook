@@ -2,25 +2,28 @@ import React from 'react';
 import { Info } from 'lucide-react';
 
 /**
- * WordByWordGrid Component
- * 
- * Purpose: Interactive word-by-word Quranic analysis
+ * WordByWordGrid Component - DEEPSEEK V2 COMPLIANT
+ *
+ * Purpose: Interactive word-by-word Quranic analysis using Urdu translations ONLY
  * Mobile Behavior: Horizontal scrollable grid, tap to select
  * Accessibility: Word selection announcements, meaning display
  * 
+ * CRITICAL: NO Arabic glyphs displayed. Uses position-mapped Urdu meanings
+ * starting at index 1 as per DeepSeek V2 specification.
+ *
  * @param {Object} props
- * @param {Array} props.words - Word data array
- * @param {string} props.selectedWord - Currently selected word ID
+ * @param {Array} props.words - Word data array with position-based Urdu meanings
+ * @param {string} props.selectedWord - Currently selected word ID/position
  * @param {Function} props.onWordSelect - Selection handler
  * @param {boolean} props.showMeanings - Show meanings toggle
  */
 interface WordByWordGridProps {
   words: Array<{
-    id: string;
-    arabicWord: string;
-    transliteration: string;
-    meaning: string;
     position: number;
+    textbook_urdu: string;
+    color_highlight?: string | null;
+    grammar_note?: string | null;
+    id?: string;
   }>;
   selectedWord?: string;
   onWordSelect?: (wordId: string) => void;
@@ -33,58 +36,75 @@ const WordByWordGrid: React.FC<WordByWordGridProps> = ({
   onWordSelect,
   showMeanings
 }) => {
+  // Sort words by position to ensure 1-based sequential order
+  const sortedWords = [...words].sort((a, b) => a.position - b.position);
+
   return (
     <div className="w-full">
-      {/* Words Grid */}
+      {/* Words Grid - Urdu Only, NO Arabic */}
       <div
-        className="grid grid-cols-2 gap-2 p-2 max-h-48 overflow-y-auto"
+        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 p-2 max-h-48 overflow-y-auto"
         role="listbox"
-        aria-label="Word by word analysis"
+        aria-label="Word by word Urdu analysis"
       >
-        {words.map((word) => {
-          const isSelected = selectedWord === word.id;
-          
+        {sortedWords.map((word) => {
+          const wordId = word.id || `pos-${word.position}`;
+          const isSelected = selectedWord === wordId;
+
           return (
             <button
-              key={word.id}
-              onClick={() => onWordSelect?.(word.id)}
+              key={wordId}
+              onClick={() => onWordSelect?.(wordId)}
               className={`p-3 rounded-lg border text-right transition-all ${
                 isSelected ? 'border-primary bg-primary/10' : 'border-border hover:bg-bg-secondary'
               }`}
               style={{
-                minHeight: '44px', // Touch target
+                minHeight: '44px',
                 direction: 'rtl',
               }}
               role="option"
               aria-selected={isSelected}
-              aria-label={`${word.arabicWord}: ${word.meaning}`}
+              aria-label={`Word ${word.position}: ${word.textbook_urdu}`}
             >
-              {/* Arabic Word */}
+              {/* Position Number */}
               <div
-                className="text-lg font-semibold mb-1"
-                style={{
-                  fontFamily: "'Amiri', 'Traditional Arabic', serif",
-                  fontSize: 'var(--text-lg)',
-                  fontWeight: 'var(--font-weight-semibold)',
-                  color: isSelected ? 'var(--color-primary)' : 'var(--color-text-primary)',
-                  direction: 'rtl',
-                }}
-                lang="ar"
-              >
-                {word.arabicWord}
-              </div>
-              
-              {/* Transliteration */}
-              <div
-                className="text-xs text-text-muted italic"
+                className="text-xs text-text-muted mb-1"
                 style={{
                   fontSize: 'var(--text-xs)',
                   color: 'var(--color-text-muted)',
-                  fontStyle: 'italic',
                 }}
               >
-                {word.transliteration}
+                #{word.position}
               </div>
+
+              {/* Urdu Meaning - NO ARABIC GLYPHS */}
+              <div
+                className="text-base font-semibold mb-1"
+                style={{
+                  fontFamily: "'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', serif",
+                  fontSize: 'var(--text-base)',
+                  fontWeight: 'var(--font-weight-semibold)',
+                  color: isSelected ? 'var(--color-primary)' : (word.color_highlight || 'var(--color-text-primary)'),
+                  direction: 'rtl',
+                }}
+                lang="ur"
+              >
+                {word.textbook_urdu || '—'}
+              </div>
+
+              {/* Grammar Note (if available) */}
+              {word.grammar_note && (
+                <div
+                  className="text-xs text-text-muted italic"
+                  style={{
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--color-text-muted)',
+                    fontStyle: 'italic',
+                  }}
+                >
+                  {word.grammar_note}
+                </div>
+              )}
             </button>
           );
         })}
@@ -113,7 +133,7 @@ const WordByWordGrid: React.FC<WordByWordGridProps> = ({
                 color: 'var(--color-primary)',
               }}
             >
-              Meaning
+              Word {selectedWord.replace('pos-', '')}
             </span>
           </div>
           <p
@@ -123,7 +143,7 @@ const WordByWordGrid: React.FC<WordByWordGridProps> = ({
               color: 'var(--color-text-primary)',
             }}
           >
-            {words.find(w => w.id === selectedWord)?.meaning || ''}
+            {sortedWords.find(w => (w.id || `pos-${w.position}`) === selectedWord)?.textbook_urdu || ''}
           </p>
         </div>
       )}
