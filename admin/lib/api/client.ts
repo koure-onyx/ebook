@@ -82,7 +82,7 @@ async function request<T>(
  * Server-side request (for use in Server Components)
  * Accepts an explicit token to forward authorization headers.
  */
-async function requestServer<T>(
+export async function requestServer<T>(
   method: string,
   path: string,
   token: string | null,
