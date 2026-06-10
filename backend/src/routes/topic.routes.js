@@ -7,6 +7,7 @@ const router = Router();
 
 router.get('/:id', optionalAuth, topicController.getTopic);
 router.get('/slug/:slug', optionalAuth, topicController.getTopicBySlug);
+router.get('/by-nested-slug/:boardSlug/:programSlug/:subjectSlug/:chapterSlug/:topicSlug', optionalAuth, topicController.getNestedTopic);
 router.get('/chapter/:chapterId', optionalAuth, topicController.getTopicsByChapter);
 router.get('/:id/adjacent', optionalAuth, topicController.getAdjacentTopics);
 router.get('/search', optionalAuth, topicController.searchTopics);

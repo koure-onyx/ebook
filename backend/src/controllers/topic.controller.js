@@ -142,3 +142,59 @@ export async function getHotTopics(req, res, next) {
     next(err);
   }
 }
+
+/**
+ * GET /topics/by-nested-slug/:boardSlug/:programSlug/:subjectSlug/:chapterSlug/:topicSlug
+ * Matches frontend catch-all route pattern: /[board]/[program]/[subject]/[chapter]/[topic]
+ */
+export async function getNestedTopic(req, res, next) {
+  try {
+    const { boardSlug, programSlug, subjectSlug, chapterSlug, topicSlug } = req.params;
+
+    // Validate all required parameters
+    if (!boardSlug || !programSlug || !subjectSlug || !chapterSlug || !topicSlug) {
+      return res.status(400).json(error('Missing required parameters: boardSlug, programSlug, subjectSlug, chapterSlug, topicSlug', 'VALIDATION_ERROR'));
+    }
+
+    // Call service with all 5 parameters as expected
+    const topic = await topicService.getTopicBySlug(boardSlug, programSlug, subjectSlug, chapterSlug, topicSlug);
+
+    if (!topic) {
+      return res.status(404).json(error('Topic not found', 'TOPIC_NOT_FOUND'));
+    }
+
+    // Ensure response matches DeepSeek schema exactly
+    const formattedTopic = {
+      _id: topic._id,
+      title: topic.title,
+      title_urdu: topic.title_urdu || '',
+      slug: topic.slug,
+      topic_number: topic.topic_number || '',
+      display_order: topic.display_order,
+      difficulty: topic.difficulty || 'medium',
+      estimated_read_time: topic.estimated_read_time || 3,
+      edition_year: topic.edition_year,
+      raw_text: topic.raw_text || '',
+      clean_html: topic.clean_html || '',
+      content_blocks: topic.content_blocks || [],
+      rendered_content_blocks: topic.rendered_content_blocks || [],
+      formulas: topic.formulas || [],
+      key_terms: topic.key_terms || [],
+      book_mcqs: topic.book_mcqs || [],
+      book_short_questions: topic.book_short_questions || [],
+      book_problems: topic.book_problems || [],
+      keywords: topic.keywords || [],
+      quran_reference: topic.quran_reference || null,
+      quran_word_alignments: topic.quran_word_alignments || [],
+      quran_textbook_translation: topic.quran_textbook_translation || '',
+      quran_textbook_tafsir: topic.quran_textbook_tafsir || '',
+      seo: topic.seo || { meta_title: '', meta_description: '', keywords: [], source_page: 0 },
+      user_progress: topic.user_progress || null
+    };
+
+    // Return standardized JSON payload
+    res.json(success(formattedTopic));
+  } catch (err) {
+    next(err);
+  }
+}
