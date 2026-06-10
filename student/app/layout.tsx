@@ -4,7 +4,7 @@ import './globals.css';
 import '../styles/quran-text.css';
 
 const quranFont = localFont({
-  src: '../public/fonts/quran/UthmanicHafs1Ver18.woff2',
+  src: './fonts/quran/UthmanicHafs1Ver18.woff2',
   variable: '--font-quran',
   display: 'block',
   preload: true,
