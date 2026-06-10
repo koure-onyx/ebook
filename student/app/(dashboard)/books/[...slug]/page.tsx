@@ -1,8 +1,8 @@
-import { redirect, notFound } from 'next/navigation';
-import { bookUrl, chapterUrl, parseReaderPath, topicUrl } from '@/lib/reader-urls';
+import { notFound } from 'next/navigation';
 import { getBookBySubject } from '@/lib/api/client';
+// TODO: Import your Reader UI components here
 
-export default async function LegacyBooksRoute({
+export default async function ReaderPage({
   params,
 }: {
   params: Promise<{ slug?: string[] }>;
@@ -10,28 +10,36 @@ export default async function LegacyBooksRoute({
   const resolvedParams = await params;
   const slugs = resolvedParams.slug ?? [];
 
-  if (slugs.length === 0) {
+  // Expected segments: [board, grade, subject, chapter?, topic?]
+  if (slugs.length < 3) {
     notFound();
   }
 
-  const [subjectSlug, ...readerPath] = slugs;
-  const { chapterSlug, topicSlug, chapterNumber } = parseReaderPath(readerPath);
+  const [board, grade, subject, chapterSlug, topicSlug] = slugs;
 
-  // Fetch book data from backend API instead of direct DB
-  const data = await getBookBySubject(subjectSlug);
-  const opts = {
-    boardSlug: data.boardSlug,
-    programSlug: data.programSlug,
-    grade: data.grade,
-  };
-
-  if (chapterNumber != null && topicSlug) {
-    redirect(topicUrl(subjectSlug, chapterSlug || `chapter-${chapterNumber}`, topicSlug, opts));
+  try {
+    const book = await getBookBySubject(subject);
+    
+    // Validate that the book matches the board and grade in the URL
+    // (Optional but recommended for strict routing)
+    
+    return (
+      <div className="p-8">
+        <h1 className="text-2xl font-bold">Reader View</h1>
+        <div className="mt-4 space-y-2">
+          <p><strong>Board:</strong> {board}</p>
+          <p><strong>Grade:</strong> {grade}</p>
+          <p><strong>Subject:</strong> {subject}</p>
+          {chapterSlug && <p><strong>Chapter:</strong> {chapterSlug}</p>}
+          {topicSlug && <p><strong>Topic:</strong> {topicSlug}</p>}
+        </div>
+        <p className="mt-8 text-slate-500 italic">
+          Reader UI implementation pending integration with backend data...
+        </p>
+      </div>
+    );
+  } catch (error) {
+    console.error('Reader fetch error:', error);
+    notFound();
   }
-
-  if (chapterSlug) {
-    redirect(chapterUrl(subjectSlug, chapterSlug, opts));
-  }
-
-  redirect(bookUrl(subjectSlug, opts));
 }

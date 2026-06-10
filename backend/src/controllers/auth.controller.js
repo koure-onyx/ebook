@@ -122,3 +122,32 @@ export async function getMe(req, res, next) {
     next(err);
   }
 }
+
+// ── DEV ONLY — delete before production ─────────────────────────────────────
+export async function devLogin(req, res, next) {
+  try {
+    if (process.env.NODE_ENV !== 'development') {
+      return res.status(404).json({ success: false, error: 'Not found' });
+    }
+
+    const { email = 'dev@studyvault.pk', name = 'Dev User' } = req.body;
+
+    let user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      user = await User.create({
+        name,
+        email: email.toLowerCase(),
+        google_id: 'dev-' + email.split('@')[0],
+        is_verified: true,
+        role: 'student',
+        student_profile: { onboarding_completed: false },
+      });
+    }
+
+    const tokens = authService.generateTokenPair(user);
+    res.json(success({ user: { id: user._id, name: user.name, email: user.email, role: user.role }, tokens }, 'Dev login OK'));
+  } catch (err) {
+    next(err);
+  }
+}
+// ── END DEV ONLY ─────────────────────────────────────────────────────────────

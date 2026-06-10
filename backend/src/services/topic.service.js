@@ -14,10 +14,10 @@ export const getTopicById = async (topicId, userId = null) => {
   const query = { _id: topicId };
   
   const topic = await Topic.findOne(query)
-    .populate('chapter', 'title slug order learning_outcomes')
-    .populate('book', 'title slug edition metadata')
-    .populate('program', 'name slug subject')
-    .populate('board', 'name slug location');
+    .populate('chapter_id', 'title slug display_order')
+    .populate('book_id', 'title slug edition metadata')
+    .populate('program_id', 'name slug subject')
+    .populate('board_id', 'name slug location');
   
   if (!topic) return null;
   
@@ -26,7 +26,7 @@ export const getTopicById = async (topicId, userId = null) => {
   
   let userProgress = null;
   if (userId) {
-    userProgress = await UserProgress.findOne({ userId, topicId });
+    userProgress = await UserProgress.findOne({ user_id: userId, topic_id: topicId });
   }
   
   return {
@@ -42,9 +42,9 @@ export const getTopicById = async (topicId, userId = null) => {
 export const getTopicBySlug = async (boardSlug, programSlug, subjectSlug, chapterSlug, topicSlug) => {
   const chapter = await Chapter.findOne({ 
     slug: chapterSlug,
-    book: { $in: await Book.find({ 
-      board: { $in: await Board.find({ slug: boardSlug }).distinct('_id') },
-      program: { $in: await Program.find({ slug: programSlug, subject: subjectSlug }).distinct('_id') }
+    book_id: { $in: await Book.find({ 
+      board_id: { $in: await Board.find({ slug: boardSlug }).distinct('_id') },
+      program_id: { $in: await Program.find({ slug: programSlug, subject: subjectSlug }).distinct('_id') }
     }).distinct('_id') }
   });
   
@@ -52,12 +52,12 @@ export const getTopicBySlug = async (boardSlug, programSlug, subjectSlug, chapte
   
   const topic = await Topic.findOne({ 
     slug: topicSlug,
-    chapter: chapter._id 
+    chapter_id: chapter._id 
   })
-    .populate('chapter', 'title slug order')
+    .populate('chapter_id', 'title slug display_order')
     .populate({
-      path: 'chapter',
-      populate: { path: 'book', select: 'title slug edition' }
+      path: 'chapter_id',
+      populate: { path: 'book_id', select: 'title slug edition' }
     });
   
   if (!topic) return null;
@@ -74,19 +74,19 @@ export const getTopicBySlug = async (boardSlug, programSlug, subjectSlug, chapte
  * Get adjacent topics for navigation
  */
 export const getAdjacentTopics = async (topicId) => {
-  const currentTopic = await Topic.findById(topicId).select('chapter order');
+  const currentTopic = await Topic.findById(topicId).select('chapter_id display_order');
   if (!currentTopic) return null;
   
   const [previousTopic, nextTopic] = await Promise.all([
     Topic.findOne({
-      chapter: currentTopic.chapter,
-      order: { $lt: currentTopic.order }
-    }).sort({ order: -1 }).select('slug title order'),
+      chapter_id: currentTopic.chapter_id,
+      display_order: { $lt: currentTopic.display_order }
+    }).sort({ display_order: -1 }).select('slug title display_order'),
     
     Topic.findOne({
-      chapter: currentTopic.chapter,
-      order: { $gt: currentTopic.order }
-    }).sort({ order: 1 }).select('slug title order')
+      chapter_id: currentTopic.chapter_id,
+      display_order: { $gt: currentTopic.display_order }
+    }).sort({ display_order: 1 }).select('slug title display_order')
   ]);
   
   return {
@@ -150,7 +150,7 @@ export const updateTopic = async (topicId, updateData) => {
  * Get topics by chapter with optional filtering
  */
 export const getTopicsByChapter = async (chapterId, options = {}) => {
-  const query = { chapter: chapterId };
+  const query = { chapter_id: chapterId };
   
   if (options.hasQuranVerses) {
     query['content_blocks.type'] = 'quran_verse';
@@ -161,8 +161,8 @@ export const getTopicsByChapter = async (chapterId, options = {}) => {
   }
   
   const topics = await Topic.find(query)
-    .sort({ order: 1 })
-    .select('slug title order content_blocks ai_summary');
+    .sort({ display_order: 1 })
+    .select('slug title display_order content_blocks ai_cache');
   
   return topics.map(topic => ({
     ...topic.toObject(),
@@ -179,13 +179,13 @@ export const searchTopics = async (query, limit = 20) => {
   const topics = await Topic.find({
     $or: [
       { title: searchRegex },
-      { 'content_blocks.content': searchRegex },
-      { ai_summary: searchRegex }
+      { 'content_blocks.text': searchRegex },
+      { 'ai_cache.explanation.text': searchRegex }
     ]
   })
     .limit(limit)
-    .populate('chapter', 'title slug')
-    .select('slug title chapter ai_summary');
+    .populate('chapter_id', 'title slug')
+    .select('slug title chapter_id ai_cache');
   
   return topics;
 };

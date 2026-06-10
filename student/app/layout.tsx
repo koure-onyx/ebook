@@ -1,15 +1,9 @@
 import type { Metadata } from 'next';
-import localFont from 'next/font/local';
 import './globals.css';
 import '../styles/quran-text.css';
+import { Providers } from "../components/Providers"; // Double-check this path matches your structure
 
-const quranFont = localFont({
-  src: './fonts/quran/UthmanicHafs1Ver18.woff2',
-  variable: '--font-quran',
-  display: 'block',
-  preload: true,
-  fallback: ['serif'],
-});
+
 
 export const metadata: Metadata = {
   title: { default: 'StudyVault PK', template: '%s | StudyVault PK' },
@@ -20,11 +14,11 @@ import { SessionProvider } from 'next-auth/react';
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" dir="ltr" className={quranFont.variable} suppressHydrationWarning>
-      <body className="font-body bg-white text-gray-900 antialiased">
-        <SessionProvider>
+    <html lang="en" dir="ltr" suppressHydrationWarning>
+      <body className="font-body bg-white text-gray-900 antialiased" suppressHydrationWarning>
+        <Providers>
           {children}
-        </SessionProvider>
+        </Providers>
       </body>
     </html>
   );

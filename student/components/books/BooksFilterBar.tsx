@@ -27,7 +27,10 @@ interface FilterState {
   search: string;
 }
 
-export function BooksFilterBar({ books, onFilterChange }: BooksFilterBarProps) {
+export function BooksFilterBar({ books: initialBooks, onFilterChange }: BooksFilterBarProps) {
+  // Normalize books data for safety
+  const books = Array.isArray(initialBooks) ? initialBooks : [];
+
   const [filters, setFilters] = useState<FilterState>({
     board: "all",
     grade: "all",
@@ -35,18 +38,21 @@ export function BooksFilterBar({ books, onFilterChange }: BooksFilterBarProps) {
     search: "",
   });
 
-  // Derive unique filter options from books list
+  // Derive unique filter options from books list with safety check
   const boards = useMemo(() => {
+    if (!Array.isArray(books)) return ["all"];
     const unique = Array.from(new Set(books.map((b) => b.board)));
     return ["all", ...unique];
   }, [books]);
 
   const grades = useMemo(() => {
+    if (!Array.isArray(books)) return ["all"];
     const unique = Array.from(new Set(books.map((b) => String(b.grade))));
     return ["all", ...unique];
   }, [books]);
 
   const subjects = useMemo(() => {
+    if (!Array.isArray(books)) return ["all"];
     const unique = Array.from(new Set(books.map((b) => b.subject)));
     return ["all", ...unique];
   }, [books]);

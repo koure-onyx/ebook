@@ -13,6 +13,12 @@ router.get('/me', requireAuth, authController.getMe);
 router.post('/onboarding', requireAuth, authController.completeOnboarding);
 
 // Logout (works with or without auth)
-router.all('/logout', authController.logout);
+router.post('/logout', authController.logout);
+
+// ── DEV ONLY — delete before production ─────────────────────────────────────
+if (process.env.NODE_ENV === 'development') {
+  router.post('/dev-login', authController.devLogin);
+}
+// ── END DEV ONLY ──────────────────────────────────────────────────
 
 export default router;

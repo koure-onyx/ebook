@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import OpenAI from 'openai';
 import { env } from '../config/env.js';
+import { Topic } from '../models/Topic.js';
 
 /**
  * AI Prompts from source monorepo - exact copy
@@ -153,6 +154,33 @@ export async function generateFlashcards(topic, count = 5) {
       return [];
     }
   }
+}
+
+/**
+ * Check AI credits for a user (stub implementation)
+ */
+export async function checkAICredits(userId) {
+  // TODO: Integrate with actual user credits system
+  return {
+    user_id: userId,
+    credit_type: 'free',
+    balance: 50,
+    monthly_limit: 50,
+    used_this_month: 0,
+  };
+}
+
+/**
+ * Generate quiz questions - wrapper around generateMCQs
+ */
+export async function generateQuizQuestions(topicId, count = 5) {
+  const topic = await Topic.findById(topicId);
+  if (!topic) {
+    const error = new Error('Topic not found');
+    error.code = 'TOPIC_NOT_FOUND';
+    throw error;
+  }
+  return generateMCQs(topic, count);
 }
 
 /**

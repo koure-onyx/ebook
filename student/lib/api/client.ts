@@ -18,6 +18,9 @@ async function getTokenFromSession(): Promise<string | null> {
   return (session?.user as any)?.token || null;
 }
 
+/**
+ * Client-side request (using browser session)
+ */
 async function request<T>(
   method: string,
   path: string,
@@ -75,7 +78,10 @@ async function request<T>(
   return data.data as T;
 }
 
-// Server-side request (for use in Server Components)
+/**
+ * Server-side request (for use in Server Components)
+ * Accepts an explicit token to forward authorization headers.
+ */
 async function requestServer<T>(
   method: string,
   path: string,
@@ -86,6 +92,7 @@ async function requestServer<T>(
     'Content-Type': 'application/json',
   };
 
+  // Explicitly set Authorization header if token is provided
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -187,7 +194,7 @@ export async function streamSSE(
   }
 }
 
-// Named API functions matching backend endpoints
+// --- API Methods ---
 
 export async function getBooks(params?: { subject?: string; board?: string; grade?: string }) {
   const searchParams = new URLSearchParams();
@@ -195,7 +202,7 @@ export async function getBooks(params?: { subject?: string; board?: string; grad
   if (params?.board) searchParams.set('board', params.board);
   if (params?.grade) searchParams.set('grade', params.grade);
   const query = searchParams.toString();
-  return request<any[]>('GET', `/books${query ? `?${query}` : ''}`);
+  return request<any>('GET', `/books${query ? `?${query}` : ''}`);
 }
 
 export async function getBooksServer(token: string | null, params?: { subject?: string; board?: string; grade?: string }) {
@@ -204,61 +211,33 @@ export async function getBooksServer(token: string | null, params?: { subject?: 
   if (params?.board) searchParams.set('board', params.board);
   if (params?.grade) searchParams.set('grade', params.grade);
   const query = searchParams.toString();
-  return requestServer<any[]>('GET', `/books${query ? `?${query}` : ''}`, token);
+  return requestServer<any>('GET', `/books${query ? `?${query}` : ''}`, token);
+}
+
+// Get book by subject slug (for legacy route redirect)
+export async function getBookBySubject(subjectSlug: string) {
+  const data = await request<any>('GET', `/books/slug/${encodeURIComponent(subjectSlug)}`);
+  return {
+    boardSlug: data.board_slug,
+    programSlug: data.program_slug,
+    grade: data.grade,
+  };
 }
 
 export async function searchContent(query: string) {
   return request<{ query: string; results: any[]; count: number }>('GET', `/search?q=${encodeURIComponent(query)}`);
 }
 
-export async function getDashboard() {
-  return request<{
-    welcome_message: string;
-    stats: any;
-    recent_activity: any[];
-    recommendations: any[];
-  }>('GET', '/dashboard/student');
-}
-
 export async function getDashboardServer(token: string | null) {
-  return requestServer<{
-    welcome_message: string;
-    stats: any;
-    recent_activity: any[];
-    recommendations: any[];
-  }>('GET', '/dashboard', token);
+  return requestServer<any>('GET', '/dashboard/student', token);
 }
 
-export async function getProgress() {
-  return request<{
-    user_id: string;
-    total_books_read: number;
-    books_in_progress: number;
-    total_topics_studied: number;
-    quiz_scores: any[];
-    weekly_activity: any[];
-    mastery_levels: Record<string, string>;
-  }>('GET', '/progress/stats');
+export async function getProgressServer(token: string | null) {
+  return requestServer<any>('GET', '/progress/stats', token);
 }
 
-export async function getVault() {
-  return request<{
-    user_id: string;
-    items_count: number;
-    items: any[];
-  }>('GET', '/vault');
-}
-
-export async function getVaultItem(id: string) {
-  return request<any>('GET', `/vault/${id}`);
-}
-
-export async function saveToVault(payload: { topicId: string; type: string; content: any }) {
-  return request<any>('POST', `/vault/${payload.topicId}`, payload);
-}
-
-export async function deleteVaultItem(id: string) {
-  return request<void>('DELETE', `/vault/${id}`);
+export async function getVaultServer(token: string | null) {
+  return requestServer<any>('GET', '/vault', token);
 }
 
 export async function getAICredits() {
@@ -271,15 +250,8 @@ export async function getAICredits() {
   }>('GET', '/ai/credits');
 }
 
-export async function getTopicBySlug(subjectSlug: string, chapterNumber: string, topicSlug: string) {
-  return request<{
-    topic: any;
-    previousTopic: { _id: string; title: string; slug: string; chapterSlug?: string } | null;
-    nextTopic: { _id: string; title: string; slug: string; chapterSlug?: string } | null;
-    book: any;
-    program: any;
-    chapter: any;
-  }>('GET', `/topics/slug/${encodeURIComponent(`${subjectSlug}/${chapterNumber}/${topicSlug}`)}`);
+export async function getTopicBySlugServer(token: string | null, subjectSlug: string, chapterNumber: string, topicSlug: string) {
+  return requestServer<any>('GET', `/topics/slug/${encodeURIComponent(`${subjectSlug}/${chapterNumber}/${topicSlug}`)}`, token);
 }
 
 export async function getTopicById(id: string) {
@@ -293,39 +265,46 @@ export async function getAdjacentTopics(topicId: string) {
   }>('GET', `/topics/${topicId}/adjacent`);
 }
 
-export async function getChapterTopics(chapterId: string) {
-  return request<any[]>('GET', `/chapters/${chapterId}/topics`);
-}
-
-export async function generateAIExplanation(topicId: string, content: string) {
-  return streamSSE(`/ai/${topicId}/explain`, { topicId, content }, 
-    (text) => console.log('chunk:', text),
-    () => console.log('done')
-  );
-}
-
 export async function generateFlashcards(topicId: string) {
-  return request<any[]>('POST', '/ai/flashcards', { topicId });
+  return request<any[]>('POST', `/ai/flashcards`, { topicId });
 }
 
-export async function generateQuizQuestions(topicId: string) {
-  return request<any[]>('POST', '/ai/generate-questions', { topicId });
+export async function generateFlashcardsServer(token: string | null, topicId: string) {
+  return requestServer<any[]>('POST', `/ai/flashcards`, token, { topicId });
 }
 
 export async function markTopicRead(topicId: string) {
   return request<{ success: boolean; xp_earned: number }>('POST', '/progress/mark-read', { topicId });
 }
 
+export async function markTopicReadServer(token: string | null, topicId: string) {
+  return requestServer<{ success: boolean; xp_earned: number }>('POST', '/progress/mark-read', token, { topicId });
+}
+
 export async function submitQuizScore(topicId: string, score: number, answers: any[]) {
   return request<{ success: boolean; xp_earned: number; mastery_status: string }>(
-    'POST', 
-    `/quizzes/topic/${topicId}/submit`, 
+    'POST',
+    `/quizzes/topic/${topicId}/submit`,
     { topicId, score, answers }
   );
 }
 
-export async function getQuranWords(topicId: string) {
-  return request<any[]>('GET', `/topics/${topicId}/quran-words`);
+export async function submitQuizScoreServer(token: string | null, topicId: string, score: number, answers: any[]) {
+  return requestServer<{ success: boolean; xp_earned: number; mastery_status: string }>(
+    'POST',
+    `/quizzes/topic/${topicId}/submit`,
+    token,
+    { topicId, score, answers }
+  );
+}
+
+// Quiz questions - uses /quizzes/topic/:topicId/random for AI-generated questions
+export async function generateQuizQuestionsServer(token: string | null, topicId: string, count: number = 5) {
+  return requestServer<{ questions: any[] }>('GET', `/quizzes/topic/${topicId}/random?limit=${count}`, token);
+}
+
+export async function searchContentServer(token: string | null, query: string) {
+  return requestServer<{ books: any[]; topics: any[]; quran: any[] }>('GET', `/search?q=${encodeURIComponent(query)}`, token);
 }
 
 export const api = {
@@ -336,57 +315,3 @@ export const api = {
   delete: <T>(path: string) => request<T>('DELETE', path),
   stream: streamSSE,
 };
-
-// Additional server-side functions
-export async function getProgressServer(token: string | null) {
-  return requestServer<{
-    user_id: string;
-    total_books_read: number;
-    books_in_progress: number;
-    total_topics_studied: number;
-    quiz_scores: any[];
-    weekly_activity: any[];
-    mastery_levels: Record<string, string>;
-  }>('GET', '/progress', token);
-}
-
-export async function getVaultServer(token: string | null) {
-  return requestServer<{
-    user_id: string;
-    items_count: number;
-    items: any[];
-  }>('GET', '/vault', token);
-}
-
-export async function getChapterProgress(chapterId: string, token: string | null) {
-  return requestServer<any>('GET', `/progress/chapter/${chapterId}`, token);
-}
-
-export async function getPublicTopicBySlug(subject: string, chapter: string, topic: string) {
-  return request<any>('GET', `/topics/public/by-slug/${subject}/${chapter}/${topic}`);
-}
-
-export async function getCheckoutPlans(token: string | null) {
-  if (token) {
-    return requestServer<any[]>('GET', '/checkout/plans', token);
-  }
-  return requestServer<any[]>('GET', '/checkout/plans', null);
-}
-
-// Additional server-side functions for pages that need them
-export async function generateQuizQuestionsServer(token: string | null, topicId: string) {
-  return requestServer<any[]>('POST', '/ai/generate-questions', token, { topicId });
-}
-
-export async function getTopicBySlugServer(token: string | null, subjectSlug: string, chapterNumber: string, topicSlug: string) {
-  return requestServer<any>('GET', `/topics/by-slug/${subjectSlug}/${chapterNumber}/${topicSlug}`, token);
-}
-
-export async function getBookBySubject(subjectSlug: string) {
-  // Call backend to get book by subject slug
-  const response = await fetch(`${API_BASE_URL}/books/subject/${encodeURIComponent(subjectSlug)}`, {
-    headers: { 'Content-Type': 'application/json' },
-  });
-  if (!response.ok) throw new Error('Failed to fetch book');
-  return response.json();
-}

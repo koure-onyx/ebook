@@ -119,23 +119,49 @@ export default function SearchPage() {
     }
 
     setIsLoading(true);
-    
+
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}&type=${typeFilter}&board=${boardFilter}`);
-      // const data = await response.json();
-      
-      // Mock search implementation
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+      const response = await fetch(`${apiUrl}/search?q=${encodeURIComponent(searchQuery)}&type=${typeFilter}&board=${boardFilter}`);
+      const data = await response.json();
+
+      // Transform backend response to frontend format
+      const backendData = data.data || data;
+      const searchResults: SearchResult[] = [];
+
+      // Add topics from backend
+      (backendData.topics || []).forEach((topic: any) => {
+        searchResults.push({ type: "topic", data: topic });
+      });
+
+      // Add books/chapters from backend
+      (backendData.books || []).forEach((book: any) => {
+        // Add book as a chapter-like result
+        searchResults.push({
+          type: "chapter",
+          data: {
+            _id: book._id,
+            title: book.title,
+            slug: book.subject_slug,
+            book: {
+              _id: book._id,
+              title: book.title,
+              subject: book.subject,
+              grade: book.grade,
+              board: book.board,
+            },
+          },
+        });
+      });
+
+      setResults(searchResults);
+    } catch (error) {
+      console.error("Search error:", error);
+      // Fallback to mock search on error
       const mockResults: SearchResult[] = MOCK_HOT_TOPICS
         .filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase()))
         .map(t => ({ type: "topic" as const, data: t }));
-      
       setResults(mockResults);
-    } catch (error) {
-      console.error("Search error:", error);
-      setResults([]);
     } finally {
       setIsLoading(false);
     }

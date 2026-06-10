@@ -28,7 +28,7 @@ interface Book {
 }
 
 interface BooksGridProps {
-  books: Book[];
+  books: Book[] | any;
 }
 
 interface FilterState {
@@ -38,7 +38,12 @@ interface FilterState {
   search: string;
 }
 
-export function BooksGrid({ books }: BooksGridProps) {
+export function BooksGrid({ books: initialBooks }: BooksGridProps) {
+  // Normalize books data - handles direct array, { books: [] }, or { data: { books: [] } }
+  const books = Array.isArray(initialBooks) 
+    ? initialBooks 
+    : (initialBooks as any)?.books || (initialBooks as any)?.data?.books || [];
+
   const [filters, setFilters] = useState<FilterState>({
     board: "all",
     grade: "all",
@@ -50,22 +55,23 @@ export function BooksGrid({ books }: BooksGridProps) {
     setFilters(newFilters);
   };
 
-  // Client-side filtering logic
-  const filteredBooks = books.filter((book) => {
+  // Client-side filtering logic with safety check
+  const filteredBooks = Array.isArray(books) ? books.filter((book) => {
+    if (!book) return false;
     const matchesBoard =
       filters.board === "all" || book.board === filters.board;
     const matchesGrade =
-      filters.grade === "all" || book.grade.toString() === filters.grade;
+      filters.grade === "all" || book.grade?.toString() === filters.grade;
     const matchesSubject =
       filters.subject === "all" ||
-      book.subject.toLowerCase() === filters.subject.toLowerCase();
+      book.subject?.toLowerCase() === filters.subject.toLowerCase();
     const matchesSearch =
       filters.search === "" ||
-      book.title.toLowerCase().includes(filters.search.toLowerCase()) ||
-      book.subject.toLowerCase().includes(filters.search.toLowerCase());
+      book.title?.toLowerCase().includes(filters.search.toLowerCase()) ||
+      book.subject?.toLowerCase().includes(filters.search.toLowerCase());
 
     return matchesBoard && matchesGrade && matchesSubject && matchesSearch;
-  });
+  }) : [];
 
   return (
     <div>

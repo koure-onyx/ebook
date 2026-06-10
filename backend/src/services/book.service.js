@@ -111,7 +111,7 @@ export function buildBookFilter({ boardId, programId, boardName, gradeName }) {
  * - Truncate SEO descriptions
  */
 function sanitizeBookForPublic(book) {
-  const sanitized = { ...book.toObject() };
+  const sanitized = book.toObject ? book.toObject() : { ...book };
   
   if (sanitized.metadata) {
     const { solutions, answers, teacher_notes, ...restMetadata } = sanitized.metadata;
@@ -177,8 +177,8 @@ export async function getBooksForUser(user = null, additionalFilters = {}) {
 export async function getBooks({ boardId, programId, classLevel, subject, grade, editionYear } = {}) {
   const query = {};
 
-  if (boardId) query.board = boardId;
-  if (programId) query.program = programId;
+  if (boardId) query.board_id = boardId;
+  if (programId) query.program_id = programId;
   if (classLevel) query.classLevel = classLevel;
   if (subject) query.subject_slug = subject;
   if (grade) query.grade = grade;
@@ -186,8 +186,8 @@ export async function getBooks({ boardId, programId, classLevel, subject, grade,
   else query.is_current_edition = true; // Default to current edition
 
   const books = await Book.find(query)
-    .populate('board', 'name slug')
-    .populate('program', 'name slug')
+    .populate('board_id', 'name slug')
+    .populate('program_id', 'name slug')
     .sort({ classLevel: 1, title: 1 });
 
   return books;
@@ -198,15 +198,15 @@ export async function getBooks({ boardId, programId, classLevel, subject, grade,
  */
 export async function getBooksByProgramBoardGrade(programId, boardId, grade) {
   const query = {
-    program: programId,
-    board: boardId,
+    program_id: programId,
+    board_id: boardId,
     grade: grade,
     is_current_edition: true
   };
 
   const books = await Book.find(query)
-    .populate('board', 'name slug')
-    .populate('program', 'name slug')
+    .populate('board_id', 'name slug')
+    .populate('program_id', 'name slug')
     .sort({ chapterOrder: 1, title: 1 });
 
   return books;
@@ -219,8 +219,8 @@ export async function getCurrentEditionBooks(filters = {}) {
   const query = { ...filters, is_current_edition: true };
 
   const books = await Book.find(query)
-    .populate('board', 'name slug')
-    .populate('program', 'name slug')
+    .populate('board_id', 'name slug')
+    .populate('program_id', 'name slug')
     .sort({ classLevel: 1, title: 1 });
 
   return books;
@@ -239,8 +239,8 @@ export async function getBookBySlugWithEdition(slug, editionYear) {
   }
 
   const book = await Book.findOne(query)
-    .populate('board', 'name slug')
-    .populate('program', 'name slug');
+    .populate('board_id', 'name slug')
+    .populate('program_id', 'name slug');
 
   if (!book) {
     const error = new Error('Book not found');
@@ -256,8 +256,8 @@ export async function getBookBySlugWithEdition(slug, editionYear) {
  */
 export async function getBookById(bookId) {
   const book = await Book.findById(bookId)
-    .populate('board', 'name slug')
-    .populate('program', 'name slug');
+    .populate('board_id', 'name slug')
+    .populate('program_id', 'name slug');
 
   if (!book) {
     const error = new Error('Book not found');
@@ -357,8 +357,8 @@ export async function deleteBook(bookId) {
   }
 
   // Cascade delete chapters and topics
-  await Chapter.deleteMany({ book: bookId });
-  await Topic.deleteMany({ book: bookId });
+  await Chapter.deleteMany({ book_id: bookId });
+  await Topic.deleteMany({ book_id: bookId });
 
   return { success: true };
 }
@@ -367,8 +367,8 @@ export async function deleteBook(bookId) {
  * Get book chapters
  */
 export async function getBookChapters(bookId) {
-  const chapters = await Chapter.find({ book: bookId })
-    .sort({ chapterNumber: 1 });
+  const chapters = await Chapter.find({ book_id: bookId })
+    .sort({ chapter_number: 1 });
 
   return chapters;
 }

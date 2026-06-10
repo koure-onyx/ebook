@@ -3,8 +3,21 @@ import * as vaultService from '../services/vault.service.js';
 
 export async function getVault(req, res, next) {
   try {
-    const vault = await vaultService.getUserVault(req.user._id);
-    res.json(success(vault));
+    const items = await vaultService.getUserVaultItems(req.user._id);
+    // Transform items to match frontend expected format
+    const transformedItems = items.map(item => ({
+      _id: item._id,
+      topicTitle: item.topic_id?.title || 'Untitled',
+      itemType: item.type,
+      content: item.flashcard || item.note || item.highlight || item.video,
+      createdAt: item.createdAt,
+      topicId: item.topic_id?._id,
+    }));
+    res.json(success({
+      user_id: req.user._id,
+      items_count: transformedItems.length,
+      items: transformedItems,
+    }));
   } catch (err) {
     next(err);
   }

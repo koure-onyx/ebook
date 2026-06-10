@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { BookOpen, Filter, Library, Search, Archive, FileText, BrainCircuit, Bookmark } from 'lucide-react';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { getVaultServer } from '@/lib/api/client';
 
@@ -34,10 +34,12 @@ async function VaultContent() {
     redirect('/api/auth/signin');
   }
 
+  // Extract the JWT token from the session
   const token = (session.user as any)?.token || null;
   let data: VaultData | null = null;
 
   try {
+    // Forward the token to the server-side API call
     data = await getVaultServer(token);
   } catch (error) {
     console.error('Failed to fetch vault:', error);
@@ -49,10 +51,11 @@ async function VaultContent() {
   }
 
   // Group items by type
-  const flashcards = data.items.filter(item => item.itemType === 'flashcard');
-  const notes = data.items.filter(item => item.itemType === 'note');
-  const bookmarks = data.items.filter(item => item.itemType === 'bookmark');
-  const highlights = data.items.filter(item => item.itemType === 'highlight');
+  const items = data?.items || [];
+  const flashcards = items.filter(item => item.itemType === 'flashcard');
+  const notes = items.filter(item => item.itemType === 'note');
+  const bookmarks = items.filter(item => item.itemType === 'bookmark');
+  const highlights = items.filter(item => item.itemType === 'highlight');
 
   const getItemIcon = (type: string) => {
     switch (type) {
@@ -80,46 +83,44 @@ async function VaultContent() {
   );
 
   return (
-    <AppShell>
-      <PageContainer title="My Vault" description="Your saved flashcards, notes, and highlights.">
-        <div className="space-y-6">
-          {/* Stats */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="p-4">
-              <div className="text-2xl font-bold text-slate-900">{data.items_count}</div>
-              <div className="text-sm text-slate-500">Total Items</div>
-            </Card>
-            <Card className="p-4">
-              <div className="text-2xl font-bold text-purple-600">{flashcards.length}</div>
-              <div className="text-sm text-slate-500">Flashcards</div>
-            </Card>
-            <Card className="p-4">
-              <div className="text-2xl font-bold text-blue-600">{notes.length}</div>
-              <div className="text-sm text-slate-500">Notes</div>
-            </Card>
-            <Card className="p-4">
-              <div className="text-2xl font-bold text-amber-600">{bookmarks.length + highlights.length}</div>
-              <div className="text-sm text-slate-500">Bookmarks</div>
-            </Card>
-          </div>
-
-          {/* All Items */}
-          <section>
-            <h2 className="text-lg font-semibold text-slate-800 mb-4">All Items</h2>
-            {data.items.length === 0 ? (
-              <Card className="p-8 text-center">
-                <Archive className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500">Your vault is empty. Start saving content while studying!</p>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {data.items.map(renderVaultItem)}
-              </div>
-            )}
-          </section>
+    <PageContainer title="My Vault" description="Your saved flashcards, notes, and highlights.">
+      <div className="space-y-6">
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="p-4">
+            <div className="text-2xl font-bold text-slate-900">{data?.items_count || 0}</div>
+            <div className="text-sm text-slate-500">Total Items</div>
+          </Card>
+          <Card className="p-4">
+            <div className="text-2xl font-bold text-purple-600">{flashcards.length}</div>
+            <div className="text-sm text-slate-500">Flashcards</div>
+          </Card>
+          <Card className="p-4">
+            <div className="text-2xl font-bold text-blue-600">{notes.length}</div>
+            <div className="text-sm text-slate-500">Notes</div>
+          </Card>
+          <Card className="p-4">
+            <div className="text-2xl font-bold text-amber-600">{bookmarks.length + highlights.length}</div>
+            <div className="text-sm text-slate-500">Bookmarks</div>
+          </Card>
         </div>
-      </PageContainer>
-    </AppShell>
+
+        {/* All Items */}
+        <section>
+          <h2 className="text-lg font-semibold text-slate-800 mb-4">All Items</h2>
+          {items.length === 0 ? (
+            <Card className="p-8 text-center">
+              <Archive className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-slate-500">Your vault is empty. Start saving content while studying!</p>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {items.map(renderVaultItem)}
+            </div>
+          )}
+        </section>
+      </div>
+    </PageContainer>
   );
 }
 

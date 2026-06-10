@@ -1,12 +1,11 @@
 import { Suspense } from "react";
-import { AppShell } from "@/components/layout/AppShell";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatCard, ContinueStudyingCard, StreakCard, HotTopicsCard, VaultSnapshotCard } from "@/components/dashboard/DashboardComponents";
 import { Zap, BookOpen, Trophy, Flame, Archive, TrendingUp, ChevronRight, CheckCircle2, RotateCcw, Clock } from "lucide-react";
 import { bookUrl, chapterUrl } from "@/lib/reader-urls";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getDashboardServer } from "@/lib/api/client";
 
@@ -108,14 +107,36 @@ async function DashboardContent() {
     redirect('/api/auth/signin');
   }
 
+  // Extract the JWT token from the session
   const token = (session.user as any)?.token || null;
   let data: DashboardData | null = null;
   
   try {
-    data = await getDashboardServer(token);
+    // Forward the token to the server-side API call
+    const raw = await getDashboardServer(token);
+    
+    // Normalise — guarantee every field the UI needs exists
+    data = {
+      firstName: raw?.firstName || raw?.user?.name?.split(' ')[0] || 'Student',
+      welcome_message: raw?.welcome_message || null,
+      stats: {
+        examReadiness:  raw?.stats?.examReadiness  ?? raw?.progressStats?.completionRate ?? 0,
+        topicsMastered: raw?.stats?.topicsMastered ?? raw?.progressStats?.completedTopics ?? 0,
+        xpThisWeek:     raw?.stats?.xpThisWeek     ?? 0,
+        currentLevel:   raw?.stats?.currentLevel   ?? 1,
+        xpToNextLevel:  raw?.stats?.xpToNextLevel  ?? 100,
+        streakDays:     raw?.stats?.streakDays      ?? 0,
+        topicsStudied:  raw?.stats?.topicsStudied   ?? raw?.progressStats?.totalTopics ?? 0,
+        studiedDays:    raw?.stats?.studiedDays     ?? [false,false,false,false,false,false,false],
+      },
+      recentChapters: raw?.recentChapters ?? [],
+      books:          raw?.books          ?? raw?.recommendedBooks ?? [],
+      hotTopics:      raw?.hotTopics      ?? [],
+      vaultItems:     raw?.vaultItems     ?? [],
+      recentQuizzes:  raw?.recentQuizzes  ?? [],
+    };
   } catch (error) {
     console.error('Failed to fetch dashboard:', error);
-    // Return empty state on error
     data = {
       books: [],
       recentChapters: [],
@@ -178,7 +199,7 @@ async function DashboardContent() {
         <ContinueStudyingCard chapters={data.recentChapters} />
       </section>
 
-      {/* Row 3: Books Overview */}
+      {/* Row 3: Your Books */}
       <section aria-label="Your Books">
         <div className="bg-white border border-slate-100 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-4">
@@ -301,12 +322,10 @@ async function DashboardContent() {
 // Main page component (Server Component)
 export default function DashboardPage() {
   return (
-    <AppShell>
-      <PageContainer title="Dashboard">
-        <Suspense fallback={<StatsStripSkeleton />}>
-          <DashboardContent />
-        </Suspense>
-      </PageContainer>
-    </AppShell>
+    <PageContainer title="Dashboard">
+      <Suspense fallback={<StatsStripSkeleton />}>
+        <DashboardContent />
+      </Suspense>
+    </PageContainer>
   );
 }

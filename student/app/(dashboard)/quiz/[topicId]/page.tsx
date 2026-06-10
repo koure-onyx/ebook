@@ -1,8 +1,9 @@
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { authOptions } from '@/lib/auth';
 import { generateQuizQuestionsServer } from '@/lib/api/client';
 import QuizEngine from '@/components/QuizEngine';
 import { notFound } from 'next/navigation';
+import { PageContainer } from '@/components/layout/PageContainer';
 
 export default async function QuizPage({ params }: { params: Promise<{ topicId: string }> }) {
   const resolvedParams = await params;
@@ -27,9 +28,8 @@ export default async function QuizPage({ params }: { params: Promise<{ topicId: 
   const topic = { _id: resolvedParams.topicId, title: 'Quiz Topic' }; // TODO: fetch topic title from API
 
   return (
-    <main className="p-8 max-w-4xl mx-auto">
+    <PageContainer title={`Quiz: ${topic.title}`}>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 font-display">Quiz: {topic.title}</h1>
         <p className="text-slate-500 mt-1">Test your understanding of this topic with {questions.length} MCQs.</p>
       </div>
 
@@ -44,6 +44,6 @@ export default async function QuizPage({ params }: { params: Promise<{ topicId: 
           <p className="text-slate-500 font-medium">No quiz questions available for this topic yet.</p>
         </div>
       )}
-    </main>
+    </PageContainer>
   );
 }

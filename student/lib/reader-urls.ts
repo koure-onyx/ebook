@@ -30,19 +30,21 @@ export function bookUrl(
 ) {
   const segments = [] as string[];
 
-  const boardSlug = opts?.boardSlug ? canonicalBoardSlug(opts.boardSlug) : '';
-  const progSlug = opts?.programSlug ? toPathSegment(opts.programSlug) : '';
-
-  if (boardSlug) {
-    segments.push(boardSlug);
-  }
-  if (progSlug) {
-    segments.push(progSlug);
+  // 1. Board (e.g., PB)
+  const boardSegment = opts?.boardSlug ? canonicalBoardSlug(opts.boardSlug) : '';
+  if (boardSegment) {
+    segments.push(boardSegment);
   }
 
+  // 2. Grade (e.g., 9)
+  if (opts?.grade) {
+    segments.push(toPathSegment(opts.grade));
+  }
+
+  // 3. Subject (e.g., physics)
   segments.push(toPathSegment(subjectSlug));
 
-  return `/${segments.filter(Boolean).join('/')}`;
+  return `/books/${segments.filter(Boolean).join('/')}`;
 }
 
 export function chapterUrl(
@@ -50,7 +52,8 @@ export function chapterUrl(
   chapterSlug: string | number,
   opts?: { boardSlug?: string; programSlug?: string; grade?: string | number }
 ) {
-  return `${bookUrl(subjectSlug, opts)}/${toPathSegment(chapterSlug)}`;
+  const base = bookUrl(subjectSlug, opts);
+  return `${base}/${toPathSegment(chapterSlug)}`;
 }
 
 export function topicUrl(
@@ -59,7 +62,8 @@ export function topicUrl(
   topicSlug: string,
   opts?: { boardSlug?: string; programSlug?: string; grade?: string | number }
 ) {
-  return `${chapterUrl(subjectSlug, chapterSlug, opts)}/${toPathSegment(topicSlug)}`;
+  const base = chapterUrl(subjectSlug, chapterSlug, opts);
+  return `${base}/${toPathSegment(topicSlug)}`;
 }
 
 export function parseReaderPath(path: string[] | undefined) {

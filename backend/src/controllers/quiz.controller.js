@@ -47,8 +47,18 @@ export async function getRandomQuiz(req, res, next) {
   try {
     const { topicId } = req.params;
     const { limit } = req.query;
-    const quiz = await quizService.getRandomQuiz(topicId, parseInt(limit));
-    res.json(success(quiz));
+    // Use AI service to generate quiz questions for the topic
+    const { Topic } = await import('../models/Topic.js');
+    const topic = await Topic.findById(topicId);
+    if (!topic) {
+      return res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Topic not found' }
+      });
+    }
+    const { generateMCQs } = await import('../services/ai.service.js');
+    const questions = await generateMCQs(topic, parseInt(limit) || 5);
+    res.json(success({ questions }));
   } catch (err) {
     next(err);
   }

@@ -51,9 +51,9 @@ export function Navbar({ userXP = 0, notificationCount = 0 }: NavbarProps) {
   const navLinks = [
     { href: "/books", icon: BookOpen, label: "Books" },
     { href: "/search", icon: Search, label: "Search" },
-    { href: "/vault", icon: Archive, label: "Vault" },
+    { href: "/my-vault", icon: Archive, label: "Vault" },
     { href: "/progress", icon: BarChart2, label: "Progress" },
-    { href: "/quizzes", icon: Zap, label: "Quizzes" },
+    { href: "/quiz", icon: Zap, label: "Quizzes" },
   ];
 
   const isActive = (href: string) =>

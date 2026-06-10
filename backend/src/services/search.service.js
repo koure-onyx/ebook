@@ -332,13 +332,13 @@ export async function searchWithFilters(filters) {
   }
 
   if (boardId) {
-    bookQuery.board = boardId;
-    topicQuery.board = boardId;
+    bookQuery.board_id = boardId;
+    topicQuery.board_id = boardId;
   }
 
   if (programId) {
-    bookQuery.program = programId;
-    topicQuery.program = programId;
+    bookQuery.program_id = programId;
+    topicQuery.program_id = programId;
   }
 
   if (classLevel) {
@@ -354,15 +354,15 @@ export async function searchWithFilters(filters) {
   if (type === 'all' || type === 'books') {
     results.books = await Book.find(bookQuery)
       .limit(20)
-      .populate('board', 'name slug')
-      .populate('program', 'name slug');
+      .populate('board_id', 'name slug')
+      .populate('program_id', 'name slug');
   }
 
   if (type === 'all' || type === 'topics') {
     results.topics = await Topic.find(topicQuery)
       .limit(20)
-      .populate('book', 'title slug subject')
-      .populate('chapter', 'title');
+      .populate('book_id', 'title slug subject')
+      .populate('chapter_id', 'title');
   }
 
   return results;

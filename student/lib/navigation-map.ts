@@ -73,7 +73,7 @@ export const navigationMap: NavItem[] = [
   // Knowledge Vault
   {
     title: 'Knowledge Vault',
-    path: '/vault',
+    path: '/my-vault',
     icon: Vault,
     roles: ['student'],
     category: 'learning'

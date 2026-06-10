@@ -2,6 +2,8 @@ import { Suspense } from 'react';
 import { BookOpen, Library } from 'lucide-react';
 import { BooksGrid } from '@/components/books/BooksGrid';
 import { getBooksServer } from '@/lib/api/client';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,11 +24,11 @@ interface Book {
   subject_slug?: string;
 }
 
-async function fetchBooksData(): Promise<Book[]> {
+async function fetchBooksData(token: string | null): Promise<Book[]> {
   try {
-    // No token needed - books are public
-    const books = await getBooksServer(null);
-    return books;
+    const data = await getBooksServer(token);
+    // Unpack backend envelope: { books: [...] }
+    return data?.books || data || [];
   } catch (error) {
     console.error('Failed to fetch books:', error);
     return [];
@@ -61,7 +63,9 @@ function LoadingSkeleton() {
 }
 
 async function BooksContent() {
-  const books = await fetchBooksData();
+  const session = await getServerSession(authOptions);
+  const token = (session?.user as any)?.token || null;
+  const books = await fetchBooksData(token);
 
   if (books.length === 0) {
     return (

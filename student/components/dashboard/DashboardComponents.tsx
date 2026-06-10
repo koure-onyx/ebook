@@ -275,7 +275,7 @@ export function VaultSnapshotCard({ items }: VaultSnapshotCardProps) {
           <Archive className="w-5 h-5 text-emerald-600" aria-hidden="true" />
           My Vault
         </h3>
-        <a href="/vault" className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
+        <a href="/my-vault" className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
           Open Vault →
         </a>
       </div>

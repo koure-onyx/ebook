@@ -13,7 +13,15 @@ export async function getBooks(req, res, next) {
     // optionalAuth middleware already set req.user if authenticated
     const user = req.user || null;
 
-    const additionalFilters = { boardId, programId, classLevel, subject, grade, editionYear };
+    // Clean up filters - only include defined values and map to correct DB fields
+    const additionalFilters = {};
+    if (boardId) additionalFilters.board_id = boardId;
+    if (programId) additionalFilters.program_id = programId;
+    if (classLevel) additionalFilters.classLevel = classLevel;
+    if (subject) additionalFilters.subject_slug = subject;
+    if (grade) additionalFilters.grade = grade;
+    if (editionYear) additionalFilters.edition_year = Number(editionYear);
+
     const books = await bookService.getBooksForUser(user, additionalFilters);
     res.json(success({ books, isAuthenticated: !!user }));
   } catch (err) {
