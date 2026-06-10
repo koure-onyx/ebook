@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { bookUrl, topicUrl } from '@/lib/reader-urls';
+import { getTopicByNestedSlugs } from '@/lib/api/client';
 
 interface Topic {
   _id: string;
@@ -55,67 +56,58 @@ interface TopicData {
 export function useTopicBySlug() {
   const params = useParams();
   const router = useRouter();
-  
+
   const [topicData, setTopicData] = useState<TopicData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  const subjectSlug = params.subjectSlug as string;
+
+  // Extract params from the catch-all route structure
   const boardSlug = params.boardSlug as string;
-  const programSlug = params.programSlug as string;
+  const grade = params.grade as string;
+  const subjectSlug = params.subjectSlug as string;
   const chapterSlug = params.chapterSlug as string;
   const topicSlug = params.topicSlug as string;
-  
+
   useEffect(() => {
-    if (!subjectSlug || !chapterSlug || !topicSlug) return;
-    
+    if (!boardSlug || !grade || !subjectSlug || !chapterSlug || !topicSlug) return;
+
     const fetchTopic = async () => {
       try {
         setLoading(true);
         setError(null);
-        
-        const response = await fetch(`/api/topics/by-slug/${subjectSlug}/${chapterSlug}/${topicSlug}`);
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to fetch topic');
-        }
-        
-        const data = await response.json();
-        
-        if (!data.success) {
-          throw new Error(data.error || 'Failed to fetch topic');
-        }
-        
-        setTopicData(data.data);
+
+        // Use the new nested slug API with grade-to-program mapping
+        const data = await getTopicByNestedSlugs(boardSlug, grade, subjectSlug, chapterSlug, topicSlug);
+
+        setTopicData(data);
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to fetch topic';
         setError(errorMessage);
-        
+
         // If topic not found, redirect to book overview
         if (errorMessage.includes('not found')) {
-          router.push(bookUrl(subjectSlug, { boardSlug, programSlug }));
+          router.push(bookUrl(subjectSlug, { boardSlug, programSlug: `matric-${grade}` }));
         }
       } finally {
         setLoading(false);
       }
     };
-    
+
     fetchTopic();
-  }, [subjectSlug, chapterSlug, topicSlug, boardSlug, programSlug, router]);
-  
+  }, [boardSlug, grade, subjectSlug, chapterSlug, topicSlug, router]);
+
   const goToNextTopic = () => {
     if (topicData?.nextTopic) {
-      router.push(topicUrl(subjectSlug, topicData.nextTopic.chapterSlug || chapterSlug, topicData.nextTopic.slug, { boardSlug, programSlug }));
+      router.push(topicUrl(subjectSlug, topicData.nextTopic.chapterSlug || chapterSlug, topicData.nextTopic.slug, { boardSlug, programSlug: `matric-${grade}` }));
     }
   };
-  
+
   const goToPreviousTopic = () => {
     if (topicData?.previousTopic) {
-      router.push(topicUrl(subjectSlug, topicData.previousTopic.chapterSlug || chapterSlug, topicData.previousTopic.slug, { boardSlug, programSlug }));
+      router.push(topicUrl(subjectSlug, topicData.previousTopic.chapterSlug || chapterSlug, topicData.previousTopic.slug, { boardSlug, programSlug: `matric-${grade}` }));
     }
   };
-  
+
   return {
     topicData,
     loading,

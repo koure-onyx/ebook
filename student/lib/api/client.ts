@@ -250,6 +250,97 @@ export async function getAICredits() {
   }>('GET', '/ai/credits');
 }
 
+
+/**
+ * Get topic by nested slugs matching the catch-all route structure
+ * Maps grade (e.g., "9") to programSlug (e.g., "matric-9")
+ */
+function gradeToProgramSlug(grade: string): string {
+  const gradeNum = parseInt(grade, 10);
+  
+  // Matric grades (9-10)
+  if (gradeNum >= 9 && gradeNum <= 10) {
+    return `matric-${gradeNum}`;
+  }
+  
+  // Intermediate/FSc grades (11-12)
+  if (gradeNum >= 11 && gradeNum <= 12) {
+    return `intermediate-${gradeNum}`;
+  }
+  
+  // Primary grades (1-5)
+  if (gradeNum >= 1 && gradeNum <= 5) {
+    return `primary-${gradeNum}`;
+  }
+  
+  // Middle grades (6-8)
+  if (gradeNum >= 6 && gradeNum <= 8) {
+    return `middle-${gradeNum}`;
+  }
+  
+  // Fallback: use grade as-is if no mapping found
+  return grade;
+}
+
+export async function getTopicByNestedSlugs(
+  board: string,
+  grade: string,
+  subject: string,
+  chapter: string,
+  topic: string
+) {
+  const program = gradeToProgramSlug(grade);
+  const path = `/topics/by-nested-slug/${encodeURIComponent(board)}/${encodeURIComponent(program)}/${encodeURIComponent(subject)}/${encodeURIComponent(chapter)}/${encodeURIComponent(topic)}`;
+  
+  const response = await request<{
+    success: boolean;
+    data: {
+      topic: any;
+      previousTopic: any | null;
+      nextTopic: any | null;
+      book: any;
+      program: any;
+      chapter: any;
+    };
+  }>("GET", path);
+  
+  if (!response.success) {
+    throw new ApiError("TOPIC_NOT_FOUND", "Topic not found", 404);
+  }
+  
+  return response.data;
+}
+
+export async function getTopicByNestedSlugsServer(
+  token: string | null,
+  board: string,
+  grade: string,
+  subject: string,
+  chapter: string,
+  topic: string
+) {
+  const program = gradeToProgramSlug(grade);
+  const path = `/topics/by-nested-slug/${encodeURIComponent(board)}/${encodeURIComponent(program)}/${encodeURIComponent(subject)}/${encodeURIComponent(chapter)}/${encodeURIComponent(topic)}`;
+  
+  const response = await requestServer<{
+    success: boolean;
+    data: {
+      topic: any;
+      previousTopic: any | null;
+      nextTopic: any | null;
+      book: any;
+      program: any;
+      chapter: any;
+    };
+  }>("GET", path, token);
+  
+  if (!response.success) {
+    throw new ApiError("TOPIC_NOT_FOUND", "Topic not found", 404);
+  }
+  
+  return response.data;
+}
+
 export async function getTopicBySlugServer(token: string | null, subjectSlug: string, chapterNumber: string, topicSlug: string) {
   return requestServer<any>('GET', `/topics/slug/${encodeURIComponent(`${subjectSlug}/${chapterNumber}/${topicSlug}`)}`, token);
 }
