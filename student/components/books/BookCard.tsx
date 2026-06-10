@@ -13,10 +13,15 @@ interface Book {
   subject_slug?: string;
   slug?: string;
   board: string;
+  board_id?: {
+    short_code?: string;
+    slug?: string;
+    name?: string;
+  };
   board_short_code?: string;
   board_slug?: string;
   program_slug?: string;
-  grade: number;
+  grade: number | string;
   edition: string;
   chapters: number;
   topics: number;
@@ -31,17 +36,28 @@ interface BookCardProps {
   book: Book;
 }
 
-export function BookCard({ book }: BookCard) {
+export function BookCard({ book }: BookCardProps) {
   // Use centralized subject icon mapping - supports both subject name and slug
-  const config = book.subject_slug 
+  const config = book.subject_slug
     ? getSubjectConfigBySlug(book.subject_slug)
     : DEFAULT_SUBJECT_CONFIG;
   const IconComponent = config.icon;
-  const readerHref = bookUrl(book.subject_slug || book.slug || book._id, {
-    boardSlug: book.board_short_code || book.board_slug,
-    programSlug: book.program_slug,
-    grade: book.grade,
-  });
+
+  // Extract board short_code from populated board_id or fallback fields
+  const boardCode = 
+    book.board_id?.short_code || 
+    book.board_short_code || 
+    book.board_slug || 
+    'PUB';
+
+  // Extract grade - ensure it's a string for URL
+  const grade = String(book.grade || '9');
+
+  // Extract subject slug
+  const subject = book.subject_slug || book.slug || book._id;
+
+  // CORRECT URL: /books/[boardCode]/[grade]/[subject_slug]
+  const readerHref = bookUrl(boardCode, grade, subject);
 
   return (
     <motion.div
