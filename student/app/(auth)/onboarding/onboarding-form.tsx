@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/Button';
 
 const BOARD_GROUPS = {
@@ -45,6 +46,7 @@ export function OnboardingForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { data: session, update } = useSession();
 
   const boardOptions = useMemo(() => {
     if (!region) return [];
@@ -57,10 +59,17 @@ export function OnboardingForm() {
     setLoading(true);
 
     try {
+      // Map grade to backend schema format
+      const gradeValue = grade.replace(/^Class\s*/i, '').replace(/^Grade\s*/i, '');
+      
       const response = await fetch('/api/user/onboarding', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ board, grade, class: section }),
+        body: JSON.stringify({ 
+          board, 
+          grade: gradeValue,
+          section 
+        }),
       });
       const data = await response.json();
 
@@ -69,8 +78,9 @@ export function OnboardingForm() {
         return;
       }
 
+      // Refresh session to update user data
+      await update();
       router.push('/dashboard');
-      router.refresh();
     } catch {
       setError('Network error. Please try again.');
     } finally {
@@ -91,18 +101,16 @@ export function OnboardingForm() {
         <select
           id="region"
           value={region}
-          onChange={(event) => {
-            const value = event.target.value as keyof typeof BOARD_GROUPS | '';
-            setRegion(value);
+          onChange={(e) => {
+            setRegion(e.target.value as keyof typeof BOARD_GROUPS);
             setBoard('');
           }}
-          required
           className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
         >
           <option value="">Select region</option>
-          <option value="FEDERAL">Federal</option>
-          <option value="PUNJAB">Punjab</option>
-          <option value="OTHER">Other provinces</option>
+          {Object.keys(BOARD_GROUPS).map((key) => (
+            <option key={key} value={key}>{key}</option>
+          ))}
         </select>
       </div>
 
@@ -111,14 +119,13 @@ export function OnboardingForm() {
         <select
           id="board"
           value={board}
-          onChange={(event) => setBoard(event.target.value)}
-          required
+          onChange={(e) => setBoard(e.target.value)}
           disabled={!region}
           className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:bg-slate-50"
         >
           <option value="">Select board</option>
-          {boardOptions.map((option) => (
-            <option key={option} value={option}>{option}</option>
+          {boardOptions.map((b) => (
+            <option key={b} value={b}>{b}</option>
           ))}
         </select>
       </div>
@@ -128,13 +135,12 @@ export function OnboardingForm() {
         <select
           id="grade"
           value={grade}
-          onChange={(event) => setGrade(event.target.value)}
-          required
+          onChange={(e) => setGrade(e.target.value)}
           className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
         >
           <option value="">Select grade</option>
-          {GRADES.map((option) => (
-            <option key={option} value={option}>{option}</option>
+          {GRADES.map((g) => (
+            <option key={g} value={g}>{g}</option>
           ))}
         </select>
       </div>
@@ -143,10 +149,10 @@ export function OnboardingForm() {
         <label htmlFor="class" className="mb-1 block text-sm font-medium text-slate-700">Class / section</label>
         <input
           id="class"
+          type="text"
           value={section}
-          onChange={(event) => setSection(event.target.value)}
-          required
-          placeholder="A, B, C etc."
+          onChange={(e) => setSection(e.target.value)}
+          placeholder="Optional: e.g., A, B, Science"
           className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
         />
       </div>

@@ -1,10 +1,17 @@
 import { redirect } from 'next/navigation';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 export default async function OnboardingPage() {
-  // TODO: Implement server-side auth check when backend is ready
-  // For now, just render the form
+  const session = await getServerSession(authOptions);
+
+  // If user already has board and grade, redirect to dashboard (prevent loop)
+  if (session?.user?.board && session?.user?.grade) {
+    redirect('/dashboard');
+  }
+
   const { OnboardingForm } = await import('./onboarding-form');
-  
+
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10">
       <div className="mx-auto max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
