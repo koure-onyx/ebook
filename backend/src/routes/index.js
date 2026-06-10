@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import authRoutes from './auth.routes.js';
 import bookRoutes from './book.routes.js';
+import chapterRoutes from './chapter.routes.js';
 import topicRoutes from './topic.routes.js';
 import vaultRoutes from './vault.routes.js';
 import progressRoutes from './progress.routes.js';
@@ -14,6 +15,7 @@ const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/books', bookRoutes);
+router.use('/chapters', chapterRoutes);
 router.use('/topics', topicRoutes);
 router.use('/vault', vaultRoutes);
 router.use('/progress', progressRoutes);

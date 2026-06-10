@@ -2,18 +2,38 @@ import { success, error } from '../utils/apiResponse.js';
 import * as bookService from '../services/book.service.js';
 
 /**
+ * Parse catch-all slug array from Next.js [...slug]
+ * Expected formats:
+ * - [boardCode, grade, subjectSlug] -> Book level
+ * - [boardCode, grade, subjectSlug, chapterSlug] -> Chapter level
+ * - [boardCode, grade, subjectSlug, chapterSlug, topicSlug] -> Topic level
+ */
+export function parseCatchAllSlug(slugArray) {
+  if (!Array.isArray(slugArray) || slugArray.length < 3) {
+    return null;
+  }
+
+  const [boardCode, grade, subjectSlug, chapterSlug, topicSlug] = slugArray;
+
+  return {
+    boardCode,
+    grade,
+    subjectSlug,
+    chapterSlug: chapterSlug || null,
+    topicSlug: topicSlug || null,
+    level: topicSlug ? 'topic' : chapterSlug ? 'chapter' : 'book'
+  };
+}
+
+/**
  * GET /books - Get all books with user-aware filtering
- * - Authenticated users: personalized results based on board/grade
- * - Unauthenticated users: public, current edition books only (sanitized)
  */
 export async function getBooks(req, res, next) {
   try {
     const { boardId, programId, classLevel, subject, grade, editionYear } = req.query;
-
-    // optionalAuth middleware already set req.user if authenticated
     const user = req.user || null;
 
-    // Clean up filters - only include defined values and map to correct DB fields
+    // Clean up filters - map to correct DB fields
     const additionalFilters = {};
     if (boardId) additionalFilters.board_id = boardId;
     if (programId) additionalFilters.program_id = programId;
@@ -23,7 +43,25 @@ export async function getBooks(req, res, next) {
     if (editionYear) additionalFilters.edition_year = Number(editionYear);
 
     const books = await bookService.getBooksForUser(user, additionalFilters);
-    res.json(success({ books, isAuthenticated: !!user }));
+    
+    // Standardized response format matching DeepSeek schema
+    res.json(success({
+      books: books.map(book => ({
+        _id: book._id,
+        title: book.title,
+        slug: book.slug,
+        subject: book.subject,
+        subject_slug: book.subject_slug,
+        grade: book.grade,
+        edition_year: book.edition_year,
+        metadata: book.metadata || {},
+        seo: book.seo || { meta_title: '', meta_description: '', keywords: [] },
+        total_chapters: book.chapter_count || 0,
+        is_live: book.is_live || false,
+        is_public: book.is_public !== false
+      })),
+      isAuthenticated: !!user
+    }));
   } catch (err) {
     next(err);
   }
@@ -36,6 +74,11 @@ export async function getBook(req, res, next) {
   try {
     const { id } = req.params;
     const book = await bookService.getBookById(id);
+    
+    if (!book) {
+      return res.status(404).json(error('Book not found', 'BOOK_NOT_FOUND'));
+    }
+    
     res.json(success(book));
   } catch (err) {
     if (err.code === 'BOOK_NOT_FOUND') {
@@ -53,6 +96,7 @@ export async function getBookBySlug(req, res, next) {
     const { slug } = req.params;
     const { editionYear } = req.query;
     const book = await bookService.getBookBySlugWithEdition(slug, editionYear);
+    
     res.json(success(book));
   } catch (err) {
     if (err.code === 'BOOK_NOT_FOUND') {
@@ -63,13 +107,36 @@ export async function getBookBySlug(req, res, next) {
 }
 
 /**
- * GET /books/:id/chapters - Get chapters for a book
+ * GET /books/:bookId/chapters - Get chapters for a book
+ * Response format matches DeepSeek schema exactly
  */
 export async function getBookChapters(req, res, next) {
   try {
-    const { id } = req.params;
-    const chapters = await bookService.getBookChapters(id);
-    res.json(success(chapters));
+    const { bookId } = req.params;
+    const chapters = await bookService.getBookChapters(bookId);
+    
+    // Ensure response matches DeepSeek schema with student_learning_outcomes, chapter_summary
+    const formattedChapters = chapters.map(chapter => ({
+      _id: chapter._id,
+      chapter_number: chapter.chapter_number,
+      chapter_number_display: chapter.chapter_number_display || `Chapter ${chapter.chapter_number}`,
+      title: chapter.title,
+      slug: chapter.slug,
+      page_start: chapter.page_start,
+      page_end: chapter.page_end,
+      student_learning_outcomes: chapter.student_learning_outcomes || [],
+      chapter_summary: chapter.summary || '',
+      display_order: chapter.display_order || 0,
+      seo: chapter.seo || { meta_title: '', meta_description: '', keywords: [] },
+      total_topics: chapter.total_topics || 0,
+      is_live: chapter.is_live || false
+    }));
+    
+    res.json(success({
+      book_id: bookId,
+      chapters: formattedChapters,
+      total_chapters: formattedChapters.length
+    }));
   } catch (err) {
     next(err);
   }
@@ -82,9 +149,12 @@ export async function createBook(req, res, next) {
   try {
     const bookData = req.body;
 
-    // Validate required fields
-    if (!bookData.title || !bookData.subject_slug) {
-      return res.status(400).json(error('Title and subject_slug are required', 'VALIDATION_ERROR'));
+    // Validate required fields per DeepSeek schema
+    const requiredFields = ['title', 'subject_slug', 'grade', 'edition_year'];
+    for (const field of requiredFields) {
+      if (!bookData[field]) {
+        return res.status(400).json(error(`${field} is required`, 'VALIDATION_ERROR'));
+      }
     }
 
     const book = await bookService.createBook(bookData);
