@@ -1,6 +1,33 @@
 import { notFound } from 'next/navigation';
-import { getBookBySubject } from '@/lib/api/client';
-// TODO: Import your Reader UI components here
+import { getBookBySubject, getBooksServer, searchContentServer } from '@/lib/api/client';
+import { parseReaderPath, bookUrl, chapterUrl, topicUrl } from '@/lib/reader-urls';
+
+interface BookParams {
+  boardCode: string;
+  grade: string;
+  subjectSlug: string;
+}
+
+async function findBookByBoardGradeSubject(boardCode: string, grade: string, subjectSlug: string, token: string | null) {
+  try {
+    const books = await getBooksServer(token, { grade, subject: subjectSlug });
+    const bookArray = Array.isArray(books) ? books : (books?.books || []);
+    
+    for (const book of bookArray) {
+      const bookBoardCode = book.board_id?.short_code || book.board_id?.slug || '';
+      if (bookBoardCode.toUpperCase() === boardCode.toUpperCase() && book.grade === grade) {
+        return book;
+      }
+    }
+    
+    if (bookArray.length > 0) {
+      return bookArray[0];
+    }
+  } catch (error) {
+    console.error('Error finding book:', error);
+  }
+  return null;
+}
 
 export default async function ReaderPage({
   params,
@@ -10,32 +37,79 @@ export default async function ReaderPage({
   const resolvedParams = await params;
   const slugs = resolvedParams.slug ?? [];
 
-  // Expected segments: [board, grade, subject, chapter?, topic?]
-  if (slugs.length < 3) {
+  const parsed = parseReaderPath(slugs);
+  
+  if (!parsed.boardCode || !parsed.grade || !parsed.subjectSlug) {
     notFound();
   }
 
-  const [board, grade, subject, chapterSlug, topicSlug] = slugs;
+  const { boardCode, grade, subjectSlug, chapterSlug, topicSlug } = parsed;
 
   try {
-    const book = await getBookBySubject(subject);
-    
-    // Validate that the book matches the board and grade in the URL
-    // (Optional but recommended for strict routing)
-    
+    const token = null;
+    const book = await findBookByBoardGradeSubject(boardCode, grade, subjectSlug, token);
+
+    if (!book) {
+      notFound();
+    }
+
+    let chapter = null;
+    let topic = null;
+
+    if (chapterSlug) {
+      const chaptersResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/books/${book._id}/chapters`,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      const chaptersData = await chaptersResponse.json();
+      const chapters = chaptersData?.data || chaptersData || [];
+      chapter = Array.isArray(chapters) ? chapters.find((c: any) => c.slug === chapterSlug) : null;
+
+      if (topicSlug && chapter) {
+        const topicsResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/chapters/${chapter._id}/topics`,
+          { headers: { 'Content-Type': 'application/json' } }
+        );
+        const topicsData = await topicsResponse.json();
+        const topics = topicsData?.data || topicsData || [];
+        topic = Array.isArray(topics) ? topics.find((t: any) => t.slug === topicSlug) : null;
+      }
+    }
+
     return (
       <div className="p-8">
-        <h1 className="text-2xl font-bold">Reader View</h1>
-        <div className="mt-4 space-y-2">
-          <p><strong>Board:</strong> {board}</p>
-          <p><strong>Grade:</strong> {grade}</p>
-          <p><strong>Subject:</strong> {subject}</p>
-          {chapterSlug && <p><strong>Chapter:</strong> {chapterSlug}</p>}
-          {topicSlug && <p><strong>Topic:</strong> {topicSlug}</p>}
+        <h1 className="text-2xl font-bold">{book.title}</h1>
+        <div className="mt-4 space-y-2 text-sm text-slate-600">
+          <p><strong>Board:</strong> {boardCode} ({grade})</p>
+          <p><strong>Subject:</strong> {subjectSlug}</p>
+          {chapter && <p><strong>Chapter:</strong> {chapter.title} ({chapterSlug})</p>}
+          {topic && <p><strong>Topic:</strong> {topic.title} ({topicSlug})</p>}
         </div>
-        <p className="mt-8 text-slate-500 italic">
-          Reader UI implementation pending integration with backend data...
-        </p>
+        
+        <div className="mt-6 p-4 bg-slate-50 rounded-lg">
+          <h2 className="font-semibold mb-2">URL Structure Verified</h2>
+          <p className="text-sm font-mono">
+            {topic 
+              ? topicUrl(boardCode, grade, subjectSlug, chapterSlug!, topicSlug)
+              : chapter 
+                ? chapterUrl(boardCode, grade, subjectSlug, chapterSlug!)
+                : bookUrl(boardCode, grade, subjectSlug)
+            }
+          </p>
+        </div>
+
+        {!chapter && !topic && (
+          <p className="mt-8 text-slate-500 italic">
+            Select a chapter to begin reading.
+          </p>
+        )}
+
+        {topic && (
+          <div className="mt-8 prose max-w-none">
+            <h2 className="text-xl font-bold">{topic.title}</h2>
+            <div dangerouslySetInnerHTML={{ __html: topic.clean_html || topic.content || '' }} />
+          </div>
+        )}
       </div>
     );
   } catch (error) {

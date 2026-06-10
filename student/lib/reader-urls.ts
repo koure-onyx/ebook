@@ -1,87 +1,71 @@
-/** Reader URLs: /[board]/[program]/[subject], /[board]/[program]/[subject]/[chapter], /[board]/[program]/[subject]/[chapter]/[topic] */
+/** Reader URLs: /[boardCode]/[grade]/[subject_slug], /[boardCode]/[grade]/[subject_slug]/[chapter_slug], /[boardCode]/[grade]/[subject_slug]/[chapter_slug]/[topic_slug] */
 
 function toPathSegment(value: string | number | null | undefined) {
   if (value === null || value === undefined) return '';
   return String(value).trim().replace(/\s+/g, '-').replace(/\/+/g, '-');
 }
 
-const PUNJAB_BOARD_ALIASES = new Set([
-  'pb',
-  'punjab',
-  'punjab-board',
-  'punjab-board-of-intermediate-and-secondary-education',
-]);
-
-export function canonicalBoardSlug(value: string | number | null | undefined) {
-  const segment = toPathSegment(value);
-  if (!segment) return '';
-
-  const normalized = segment.toLowerCase();
-  if (PUNJAB_BOARD_ALIASES.has(normalized) || normalized === 'punjab board') {
-    return 'PB';
-  }
-
-  return segment;
-}
-
 export function bookUrl(
-  subjectSlug: string,
-  opts?: { boardSlug?: string; programSlug?: string; grade?: string | number }
+  boardShortCode: string,
+  grade: string | number,
+  subjectSlug: string
 ) {
-  const segments = [] as string[];
+  const segments = [
+    toPathSegment(boardShortCode),
+    toPathSegment(grade),
+    toPathSegment(subjectSlug)
+  ].filter(Boolean);
 
-  // 1. Board (e.g., PB)
-  const boardSegment = opts?.boardSlug ? canonicalBoardSlug(opts.boardSlug) : '';
-  if (boardSegment) {
-    segments.push(boardSegment);
-  }
-
-  // 2. Grade (e.g., 9)
-  if (opts?.grade) {
-    segments.push(toPathSegment(opts.grade));
-  }
-
-  // 3. Subject (e.g., physics)
-  segments.push(toPathSegment(subjectSlug));
-
-  return `/books/${segments.filter(Boolean).join('/')}`;
+  return `/books/${segments.join('/')}`;
 }
 
 export function chapterUrl(
+  boardShortCode: string,
+  grade: string | number,
   subjectSlug: string,
-  chapterSlug: string | number,
-  opts?: { boardSlug?: string; programSlug?: string; grade?: string | number }
+  chapterSlug: string
 ) {
-  const base = bookUrl(subjectSlug, opts);
+  const base = bookUrl(boardShortCode, grade, subjectSlug);
   return `${base}/${toPathSegment(chapterSlug)}`;
 }
 
 export function topicUrl(
+  boardShortCode: string,
+  grade: string | number,
   subjectSlug: string,
-  chapterSlug: string | number,
-  topicSlug: string,
-  opts?: { boardSlug?: string; programSlug?: string; grade?: string | number }
+  chapterSlug: string,
+  topicSlug: string
 ) {
-  const base = chapterUrl(subjectSlug, chapterSlug, opts);
+  const base = chapterUrl(boardShortCode, grade, subjectSlug, chapterSlug);
   return `${base}/${toPathSegment(topicSlug)}`;
 }
 
-export function parseReaderPath(path: string[] | undefined) {
-  if (!path?.length) {
+export interface ParsedReaderUrl {
+  boardCode: string | null;
+  grade: string | null;
+  subjectSlug: string | null;
+  chapterSlug: string | null;
+  topicSlug: string | null;
+}
+
+export function parseReaderPath(path: string[] | undefined): ParsedReaderUrl {
+  if (!path?.length || path.length < 3) {
     return {
-      chapterSlug: null as string | null,
-      chapterNumber: null as number | null,
-      topicSlug: null as string | null,
+      boardCode: null,
+      grade: null,
+      subjectSlug: null,
+      chapterSlug: null,
+      topicSlug: null,
     };
   }
 
-  const [chapterSlug, topicSlug] = path;
-  const chapterMatch = String(chapterSlug || '').match(/^chapter-(\d+)$/i);
-  const chapterNumber = chapterMatch ? parseInt(chapterMatch[1], 10) : null;
+  const [boardCode, grade, subjectSlug, chapterSlug, topicSlug] = path;
 
   return {
+    boardCode: boardCode || null,
+    grade: grade || null,
+    subjectSlug: subjectSlug || null,
     chapterSlug: chapterSlug || null,
-    chapterNumber,
     topicSlug: topicSlug || null,
   };
 }
