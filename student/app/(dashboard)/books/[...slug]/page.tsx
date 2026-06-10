@@ -73,7 +73,7 @@ export default async function ReaderPage({
     // Fallback: if topic not found via new API, try old method
     if (!topic && chapterSlug) {
       const chaptersResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/books/${book._id}/chapters`,
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/books/${book._id}/chapters`,
         { headers: { 'Content-Type': 'application/json' } }
       );
       const chaptersData = await chaptersResponse.json();
@@ -84,7 +84,7 @@ export default async function ReaderPage({
 
       if (topicSlug && chapter && !topic) {
         const topicsResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/chapters/${chapter._id}/topics`,
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/chapters/${chapter._id}/topics`,
           { headers: { 'Content-Type': 'application/json' } }
         );
         const topicsData = await topicsResponse.json();
