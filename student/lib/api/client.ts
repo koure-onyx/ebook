@@ -381,3 +381,12 @@ export async function generateQuizQuestionsServer(token: string | null, topicId:
 export async function getTopicBySlugServer(token: string | null, subjectSlug: string, chapterNumber: string, topicSlug: string) {
   return requestServer<any>('GET', `/topics/by-slug/${subjectSlug}/${chapterNumber}/${topicSlug}`, token);
 }
+
+export async function getBookBySubject(subjectSlug: string) {
+  // Call backend to get book by subject slug
+  const response = await fetch(`${API_BASE_URL}/books/subject/${encodeURIComponent(subjectSlug)}`, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!response.ok) throw new Error('Failed to fetch book');
+  return response.json();
+}

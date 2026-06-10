@@ -1,6 +1,6 @@
 import { redirect, notFound } from 'next/navigation';
 import { bookUrl, chapterUrl, parseReaderPath, topicUrl } from '@/lib/reader-urls';
-import { loadBookReaderData } from '@/lib/load-book-reader';
+import { getBookBySubject } from '@/lib/api/client';
 
 export default async function LegacyBooksRoute({
   params,
@@ -17,7 +17,8 @@ export default async function LegacyBooksRoute({
   const [subjectSlug, ...readerPath] = slugs;
   const { chapterSlug, topicSlug, chapterNumber } = parseReaderPath(readerPath);
 
-  const data = await loadBookReaderData(subjectSlug);
+  // Fetch book data from backend API instead of direct DB
+  const data = await getBookBySubject(subjectSlug);
   const opts = {
     boardSlug: data.boardSlug,
     programSlug: data.programSlug,

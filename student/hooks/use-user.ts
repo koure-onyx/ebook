@@ -26,7 +26,7 @@ export function useUser(initialUser: AuthUser | null = null): UseUserResult {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/auth/me', { cache: 'no-store' });
+      const response = await fetch(process.env.NEXT_PUBLIC_API_URL + '/auth/me', { cache: 'no-store' });
       const data = await response.json().catch(() => null);
       setUser(data?.success && data.data?.user ? data.data.user : null);
     } catch {
