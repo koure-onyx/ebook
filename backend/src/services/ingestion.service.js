@@ -524,12 +524,13 @@ export function validateIngestionData(data) {
     if (!String(grade_level || '').trim()) errors.push('Missing book_metadata.grade_level');
     if (!String(board || '').trim()) errors.push('Missing book_metadata.board');
     if (!String(edition_year || '').trim()) errors.push('Missing book_metadata.edition_year');
+    // Note: slug and subject_slug are auto-generated from title/subject, so they don't need to be provided
   }
   if (!data.chapter) errors.push('Missing chapter');
   else {
     const { title, slug, chapter_number } = data.chapter;
     if (!String(title || '').trim()) errors.push('Missing chapter.title');
-    if (!String(slug || '').trim()) errors.push('Missing chapter.slug');
+    // chapter.slug is optional - will be auto-generated if not provided
     if (!chapter_number && chapter_number !== 0) errors.push('Missing chapter.chapter_number');
   }
   if (!Array.isArray(data.topics) || data.topics.length === 0) {

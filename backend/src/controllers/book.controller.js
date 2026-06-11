@@ -39,7 +39,6 @@ export async function getBooks(req, res, next) {
     if (programId) additionalFilters.program_id = programId;
     if (classLevel) additionalFilters.classLevel = classLevel;
     if (subject) additionalFilters.subject_slug = subject;
-    if (subject) additionalFilters.subject_slug = subject;
     if (editionYear) additionalFilters.edition_year = Number(editionYear);
     
     // Step B: Flexible grade matching
@@ -65,8 +64,14 @@ export async function getBooks(req, res, next) {
       if (boardDoc) {
         additionalFilters.board_id = boardDoc._id;
       } else {
-        // Return early if board short code does not exist, to avoid pulling all books
-        return res.json(success({ books: [], isAuthenticated: !!user }));
+        // Fallback: Try to find by slug as well
+        const boardBySlug = await Board.findOne({ slug: board });
+        if (boardBySlug) {
+          additionalFilters.board_id = boardBySlug._id;
+        } else {
+          // Return early if board short code does not exist, to avoid pulling all books
+          return res.json(success({ books: [], isAuthenticated: !!user }));
+        }
       }
     }
 
@@ -80,6 +85,15 @@ export async function getBooks(req, res, next) {
       const fallbackBooks = await bookService.getBooksForUser(user, fallbackFilters);
       if (fallbackBooks.length > 0) {
         books = fallbackBooks;
+      }
+    }
+    
+    // Step D: Final fallback - search by subject_slug only if everything else fails
+    if (books.length === 0 && subject) {
+      const subjectOnlyFilters = { subject_slug: subject };
+      const subjectOnlyBooks = await bookService.getBooksForUser(user, subjectOnlyFilters);
+      if (subjectOnlyBooks.length > 0) {
+        books = subjectOnlyBooks;
       }
     }
     
