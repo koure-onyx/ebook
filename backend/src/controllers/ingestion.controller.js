@@ -5,6 +5,7 @@ export async function ingestBook(req, res, next) {
   try {
     const validation = ingestionService.validateIngestionData(req.body);
     if (!validation.isValid) {
+      console.error('[INGESTION] Validation failed:', validation.errors);
       return res.status(400).json({
         success: false,
         error: {
@@ -16,6 +17,18 @@ export async function ingestBook(req, res, next) {
     }
 
     const book = await ingestionService.ingestBook(req.body, req.user?._id);
+    if (!book?.success) {
+      console.error('[INGESTION] Service failed:', book?.error, book?.log || []);
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'INGESTION_FAILED',
+          message: book?.error || 'Book ingestion failed',
+          details: book?.log || []
+        }
+      });
+    }
+
     res.status(201).json(success(book, 'Book ingested successfully'));
   } catch (err) {
     next(err);

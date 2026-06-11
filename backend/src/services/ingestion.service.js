@@ -34,6 +34,70 @@ function normalizeKeyTerms(value) {
     .filter((item) => item && item.term);
 }
 
+function resolveBoardShortCode(boardName) {
+  const normalized = String(boardName || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ');
+
+  if (!normalized) return 'PUB';
+
+  const punjabAliases = [
+    'pub',
+    'pctb',
+    'pb',
+    'punjab',
+    'punjab board',
+    'punjab curriculum and textbook board',
+    'punjab curriculum and textbook board pctb',
+    'punjab curriculum and textboard board pctb',
+  ];
+
+  if (punjabAliases.some((alias) => normalized === alias || normalized.includes(alias))) {
+    return 'PUB';
+  }
+
+  return String(boardName)
+    .trim()
+    .split(' ')
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 5);
+}
+
+function resolveProgramSlug(bookMetadata) {
+  const explicitSlug = generateSlug(bookMetadata?.program_slug || '');
+  if (explicitSlug) return explicitSlug;
+
+  const subject = String(bookMetadata?.subject || '').trim().toLowerCase();
+  if (subject) {
+    if (subject.includes('quran') || subject.includes('tarjuma') || subject.includes('islam')) {
+      return 'diniyat';
+    }
+    if (subject.includes('urdu') || subject.includes('english') || subject.includes('language')) {
+      return 'languages';
+    }
+    if (['physics', 'chemistry', 'biology', 'mathematics', 'math', 'science'].some((item) => subject.includes(item))) {
+      return 'science';
+    }
+  }
+
+  const gradeLevel = String(bookMetadata?.grade_level || '').trim();
+  if (gradeLevel) {
+    const gradeSlug = generateSlug(gradeLevel);
+    if (gradeSlug) return gradeSlug;
+  }
+
+  const grade = String(bookMetadata?.grade || '').trim();
+  if (grade) {
+    const gradeSlug = generateSlug(grade);
+    if (gradeSlug) return gradeSlug;
+  }
+
+  return '';
+}
+
 /**
  * Ingest a complete book with chapters and topics - full pipeline matching source monorepo
  * @param {Object} deepseekJson - The ingested JSON from AI processing
@@ -42,14 +106,19 @@ function normalizeKeyTerms(value) {
 export async function ingestBook(deepseekJson, adminUserId) {
   const log = [];
   const { book_metadata, chapter, topics } = deepseekJson;
+  const programSlug = resolveProgramSlug(book_metadata);
 
   try {
     // STEP 1: Upsert Program
-    let program = await Program.findOne({ slug: generateSlug(book_metadata.grade_level) });
+    if (!programSlug) {
+      throw new Error('Unable to resolve program slug from book metadata');
+    }
+
+    let program = await Program.findOne({ slug: programSlug });
     if (!program) {
       program = await Program.create({
-        name: book_metadata.grade_level,
-        slug: generateSlug(book_metadata.grade_level),
+        name: String(book_metadata.grade_level || book_metadata.program_name || programSlug).trim(),
+        slug: programSlug,
         program_type: 'academic',
         created_by: adminUserId,
       });
@@ -57,30 +126,44 @@ export async function ingestBook(deepseekJson, adminUserId) {
     }
 
     // STEP 2: Upsert Board
-    let board = await Board.findOne({ name: book_metadata.board });
+    const boardShortCode = resolveBoardShortCode(book_metadata.board);
+    let board = await Board.findOne({
+      $or: [
+        { name: book_metadata.board },
+        { short_code: boardShortCode },
+        { slug: generateSlug(book_metadata.board) },
+      ],
+    });
     if (!board) {
       board = await Board.create({
         name: book_metadata.board,
         slug: generateSlug(book_metadata.board),
-        short_code: book_metadata.board.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 5),
+        short_code: boardShortCode,
       });
       log.push(`✓ Created Board: ${board.name}`);
+    } else if (board.short_code !== boardShortCode && boardShortCode === 'PUB') {
+      board.short_code = boardShortCode;
+      board.slug = generateSlug(book_metadata.board);
+      await board.save();
+      log.push(`✓ Normalized Board short code to: ${board.short_code}`);
     }
 
     // STEP 3: Upsert Book — handle version control
+    const subjectSlug = generateSlug(book_metadata.subject_slug || book_metadata.subject);
     const bookSlug = generateSlug(
+      book_metadata.slug ||
       `${book_metadata.subject}-${book_metadata.grade_level}-${board.short_code}-${book_metadata.edition_year}`
     );
 
     // Find any existing current edition for this subject+program+board
     const existingCurrentBook = await Book.findOne({
-      subject_slug: generateSlug(book_metadata.subject),
+      subject_slug: subjectSlug,
       program_id: program._id,
       board_id: board._id,
       is_current_edition: true,
     });
 
-    const gradeVal = book_metadata.grade_level ? book_metadata.grade_level.replace(/grade\s*/i, '').trim() : undefined;
+    const gradeVal = book_metadata.grade_level ? String(book_metadata.grade_level).replace(/grade\s*/i, '').trim() : undefined;
     const boardVal = board ? board.name : (book_metadata.board || undefined);
 
     let book;
@@ -89,6 +172,16 @@ export async function ingestBook(deepseekJson, adminUserId) {
       book = existingCurrentBook;
       book.board = boardVal;
       book.grade = gradeVal;
+      book.slug = book.slug || bookSlug;
+      book.subject_slug = book.subject_slug || subjectSlug;
+      book.subject = book.subject || book_metadata.subject;
+      book.program_id = book.program_id || program._id;
+      book.board_id = book.board_id || board._id;
+      book.edition_year = book.edition_year || book_metadata.edition_year;
+      book.metadata = {
+        ...(book.metadata || {}),
+        grade_level: book_metadata.grade_level,
+      };
       book.is_live = true;
       await book.save();
       log.push(`✓ Updating existing book: ${book.title}`);
@@ -99,7 +192,7 @@ export async function ingestBook(deepseekJson, adminUserId) {
         title: book_metadata.title,
         slug: bookSlug,
         subject: book_metadata.subject,
-        subject_slug: generateSlug(book_metadata.subject),
+        subject_slug: subjectSlug,
         board: boardVal,
         grade: gradeVal,
         program_id: program._id,
@@ -126,7 +219,7 @@ export async function ingestBook(deepseekJson, adminUserId) {
         title: book_metadata.title,
         slug: bookSlug,
         subject: book_metadata.subject,
-        subject_slug: generateSlug(book_metadata.subject),
+        subject_slug: subjectSlug,
         board: boardVal,
         grade: gradeVal,
         program_id: program._id,
@@ -426,18 +519,18 @@ export function validateIngestionData(data) {
   if (!data.book_metadata) errors.push('Missing book_metadata');
   else {
     const { title, subject, grade_level, board, edition_year } = data.book_metadata;
-    if (!title) errors.push('Missing book_metadata.title');
-    if (!subject) errors.push('Missing book_metadata.subject');
-    if (!grade_level) errors.push('Missing book_metadata.grade_level');
-    if (!board) errors.push('Missing book_metadata.board');
-    if (!edition_year) errors.push('Missing book_metadata.edition_year');
+    if (!String(title || '').trim()) errors.push('Missing book_metadata.title');
+    if (!String(subject || '').trim()) errors.push('Missing book_metadata.subject');
+    if (!String(grade_level || '').trim()) errors.push('Missing book_metadata.grade_level');
+    if (!String(board || '').trim()) errors.push('Missing book_metadata.board');
+    if (!String(edition_year || '').trim()) errors.push('Missing book_metadata.edition_year');
   }
   if (!data.chapter) errors.push('Missing chapter');
   else {
     const { title, slug, chapter_number } = data.chapter;
-    if (!title) errors.push('Missing chapter.title');
-    if (!slug) errors.push('Missing chapter.slug');
-    if (!chapter_number) errors.push('Missing chapter.chapter_number');
+    if (!String(title || '').trim()) errors.push('Missing chapter.title');
+    if (!String(slug || '').trim()) errors.push('Missing chapter.slug');
+    if (!chapter_number && chapter_number !== 0) errors.push('Missing chapter.chapter_number');
   }
   if (!Array.isArray(data.topics) || data.topics.length === 0) {
     errors.push('Missing or empty topics array');
