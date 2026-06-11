@@ -1,30 +1,24 @@
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
-import { headers } from 'next/headers';
 import { authOptions } from '@/lib/auth';
 import { AppShell } from '@/components/layout/AppShell';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
-  const headersList = await headers();
-  const pathname = headersList.get('x-pathname') || '';
 
+  // 1. Guard: Force login if session is empty (redundant with middleware but safe to keep for RSC)
   if (!session) {
     redirect('/api/auth/signin');
   }
 
-  // Profile completeness check: Redirect to onboarding if board or grade is missing
-  // Skip this check when already on /onboarding to prevent infinite redirect loops
   const user = session.user as any;
-  const hasBoard = !!user?.board || !!user?.board_id;
-  const hasGrade = !!user?.grade || !!user?.grade_level;
 
-  if (!hasBoard || !hasGrade) {
-    // Only redirect if not already on onboarding page
-    if (!pathname.includes('/onboarding')) {
-      redirect('/onboarding');
-    }
+  // 2. Admin Bypass: If the user is an admin, let them through directly!
+  if (user?.role === 'admin') {
+    return <AppShell>{children}</AppShell>;
   }
+
+  // NOTE: Onboarding redirect logic has been moved to middleware.ts for reliability.
 
   return (
     <AppShell>

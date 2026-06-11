@@ -32,7 +32,7 @@ export const authOptions: NextAuthOptions = {
                 const token = data.data?.tokens?.accessToken || data.data?.token;
                 const user = data.data?.user;
                 return { 
-                  id: user?._id || email, 
+                  id: user?.id || email, 
                   email, 
                   name: user?.name || 'Dev User',
                   role: user?.role || 'student',
@@ -90,20 +90,32 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
 
-    async jwt({ token, account, user }) {
+    async jwt({ token, account, user, trigger, session }) {
       if ((account as any)?.backendToken) {
         token.backendToken = (account as any).backendToken;
       }
       if ((user as any)?.backendToken) {
         token.backendToken = (user as any).backendToken;
       }
-      // Store role in token
-      if ((account as any)?.userRole) {
+      
+      // Store role and profile metrics in token
+      if (user) {
+        const u = user as any;
+        token.role = u.role || 'student';
+        token.board = u.board || u.student_profile?.board || u.profile?.board;
+        token.grade = u.grade || u.student_profile?.grade || u.profile?.grade;
+      }
+
+      // Handle session update
+      if (trigger === "update" && session) {
+        token.board = session.board || token.board;
+        token.grade = session.grade || token.grade;
+      }
+      
+      if (account && (account as any).userRole) {
         token.role = (account as any).userRole;
       }
-      if ((user as any)?.role) {
-        token.role = (user as any).role;
-      }
+
       return token;
     },
 
@@ -111,11 +123,21 @@ export const authOptions: NextAuthOptions = {
       session.user.id = (token.sub || '') as string;
       (session.user as any).token = token.backendToken;
       (session.user as any).role = token.role || 'student';
+      (session.user as any).board = token.board;
+      (session.user as any).grade = token.grade;
       return session;
     },
   },
-  pages: {
-    signIn: '/api/auth/signin',
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token.student`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

@@ -6,7 +6,8 @@ export class ApiError extends Error {
   constructor(
     public code: string,
     message: string,
-    public status: number
+    public status: number,
+    public details: unknown = null
   ) {
     super(message);
     this.name = 'ApiError';
@@ -15,7 +16,11 @@ export class ApiError extends Error {
 
 async function getTokenFromSession(): Promise<string | null> {
   const session = await getSession();
-  return (session?.user as any)?.token || null;
+  const token = (session?.user as any)?.token;
+  if (token && typeof token === 'string') {
+    return token.replace(/['"]+/g, '').trim();
+  }
+  return null;
 }
 
 /**
@@ -29,8 +34,10 @@ async function request<T>(
 ): Promise<T> {
   const token = await getTokenFromSession();
 
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(!isFormData && { 'Content-Type': 'application/json' }),
     ...init?.headers as Record<string, string>,
   };
 
@@ -44,7 +51,7 @@ async function request<T>(
       method,
       headers,
       credentials: 'include',
-      body: body ? JSON.stringify(body) : undefined,
+      body: isFormData ? (body as FormData) : (body ? JSON.stringify(body) : undefined),
       ...init,
     });
   } catch (networkError) {
@@ -55,9 +62,8 @@ async function request<T>(
     );
   }
 
-  // Handle 401 Unauthorized - sign out the user
+  // Handle 401 Unauthorized
   if (response.status === 401) {
-    await signOut({ callbackUrl: '/' });
     throw new ApiError(
       'UNAUTHORIZED',
       'Your session has expired. Please sign in again.',
@@ -71,7 +77,8 @@ async function request<T>(
     throw new ApiError(
       data.error?.code || 'UNKNOWN_ERROR',
       data.error?.message || response.statusText,
-      response.status
+      response.status,
+      data.error?.details ?? null
     );
   }
 
@@ -94,7 +101,8 @@ export async function requestServer<T>(
 
   // Explicitly set Authorization header if token is provided
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    const cleanToken = token.replace(/['"]+/g, '').trim();
+    headers['Authorization'] = `Bearer ${cleanToken}`;
   }
 
   let response: Response;
@@ -127,7 +135,8 @@ export async function requestServer<T>(
     throw new ApiError(
       data.error?.code || 'UNKNOWN_ERROR',
       data.error?.message || response.statusText,
-      response.status
+      response.status,
+      data.error?.details ?? null
     );
   }
 
@@ -143,3 +152,63 @@ export const api = {
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
 };
+
+export async function getBooksServer(token: string | null, params?: { subject?: string; board?: string; grade?: string }) {
+  const searchParams = new URLSearchParams();
+  if (params?.subject) searchParams.set('subject', params.subject);
+  if (params?.board) searchParams.set('board', params.board);
+  if (params?.grade) searchParams.set('grade', params.grade);
+  const query = searchParams.toString();
+  return requestServer<any>('GET', `/books${query ? `?${query}` : ''}`, token);
+}
+
+export async function getBookBySubjectServer(token: string | null, subjectSlug: string) {
+  const data = await requestServer<any>('GET', `/books/slug/${encodeURIComponent(subjectSlug)}`, token);
+  return {
+    boardSlug: data.board_slug,
+    programSlug: data.program_slug,
+    grade: data.grade,
+  };
+}
+
+function gradeToProgramSlug(grade: string): string {
+  const gradeNum = parseInt(grade, 10);
+  if (gradeNum >= 9 && gradeNum <= 10) return `matric-${gradeNum}`;
+  if (gradeNum >= 11 && gradeNum <= 12) return `intermediate-${gradeNum}`;
+  if (gradeNum >= 1 && gradeNum <= 5) return `primary-${gradeNum}`;
+  if (gradeNum >= 6 && gradeNum <= 8) return `middle-${gradeNum}`;
+  return grade;
+}
+
+export async function getTopicByNestedSlugsServer(
+  token: string | null,
+  board: string,
+  grade: string,
+  subject: string,
+  chapter: string,
+  topic: string
+) {
+  const program = gradeToProgramSlug(grade);
+  const path = `/topics/by-nested-slug/${encodeURIComponent(board)}/${encodeURIComponent(program)}/${encodeURIComponent(subject)}/${encodeURIComponent(chapter)}/${encodeURIComponent(topic)}`;
+  
+  try {
+    const result = await requestServer<{
+      topic: any;
+      previousTopic: any | null;
+      nextTopic: any | null;
+      book: any;
+      program: any;
+      chapter: any;
+    }>("GET", path, token);
+    
+    return result;
+  } catch (err) {
+    const fallbackPath = `/topics/by-nested-slug/${encodeURIComponent(board)}/${encodeURIComponent(grade)}/${encodeURIComponent(subject)}/${encodeURIComponent(chapter)}/${encodeURIComponent(topic)}`;
+    try {
+      const result = await requestServer<any>("GET", fallbackPath, token);
+      return result;
+    } catch {
+      throw err;
+    }
+  }
+}

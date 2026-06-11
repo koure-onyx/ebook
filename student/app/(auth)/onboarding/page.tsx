@@ -4,9 +4,13 @@ import { authOptions } from '@/lib/auth';
 
 export default async function OnboardingPage() {
   const session = await getServerSession(authOptions);
+  const user = session?.user as any;
 
   // If user already has board and grade, redirect to dashboard (prevent loop)
-  if (session?.user?.board && session?.user?.grade) {
+  const hasBoard = !!user?.board || !!user?.board_id || !!user?.profile?.board;
+  const hasGrade = !!user?.grade || !!user?.grade_level || !!user?.profile?.grade;
+
+  if (hasBoard && hasGrade) {
     redirect('/dashboard');
   }
 

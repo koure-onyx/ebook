@@ -37,12 +37,14 @@ export function BookCard({ book, showProgress = false }: BookCardProps) {
   const completedChapters = book.completed_chapters ?? 0;
   const progress =
     book.total_chapters > 0 ? (completedChapters / book.total_chapters) * 100 : 0;
+  const grade = book.metadata?.grade_level ? String(book.metadata.grade_level) : undefined;
 
   const handleClick = () => {
     router.push(
       bookUrl(book.subject_slug, {
         boardSlug: book.board_short_code || book.board_slug,
         programSlug: book.program_slug,
+        grade,
       })
     );
   };

@@ -1,27 +1,100 @@
 import { notFound } from 'next/navigation';
-import { getBookBySubject, getBooksServer, searchContentServer, getTopicByNestedSlugs } from '@/lib/api/client';
-import { parseReaderPath, bookUrl, chapterUrl, topicUrl } from '@/lib/reader-urls';
+import { getBookBySubjectServer, getBooksServer } from '@/lib/api/client';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import FullBookViewer from '@/components/reader/FullBookViewer';
 
-interface BookParams {
-  boardCode: string;
-  grade: string;
-  subjectSlug: string;
+function normalizeSegment(value: string | null | undefined) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function normalizeGradeValue(value: string | null | undefined) {
+  const normalized = normalizeSegment(value);
+  if (!normalized) return '';
+  if (normalized.includes('all')) return 'all';
+  return normalized;
+}
+
+function isAllGrade(value: string | null | undefined) {
+  return ['all', 'all grades'].includes(normalizeSegment(value));
+}
+
+function gradesMatch(bookGrade: string | null | undefined, routeGrade: string | null | undefined) {
+  const normalizedBookGrade = normalizeGradeValue(bookGrade);
+  const normalizedRouteGrade = normalizeGradeValue(routeGrade);
+
+  if (!normalizedBookGrade || !normalizedRouteGrade) return false;
+  if (normalizedBookGrade === normalizedRouteGrade) return true;
+
+  const bookNumeric = normalizedBookGrade.match(/\d{1,2}/)?.[0];
+  const routeNumeric = normalizedRouteGrade.match(/\d{1,2}/)?.[0];
+  if (bookNumeric && routeNumeric) {
+    return bookNumeric === routeNumeric;
+  }
+
+  return false;
+}
+
+function bookScore(book: any) {
+  const chapterCount = Number(book.total_chapters ?? book.chapter_count ?? 0);
+  const currentEdition = book.is_current_edition === false ? 0 : 1;
+  const live = book.is_live === false ? 0 : 1;
+  const editionYear = Number(book.edition_year ?? 0);
+
+  return [
+    currentEdition,
+    live,
+    chapterCount > 0 ? 1 : 0,
+    chapterCount,
+    editionYear,
+  ];
+}
+
+function compareBooks(a: any, b: any) {
+  const sa = bookScore(a);
+  const sb = bookScore(b);
+  for (let i = 0; i < sa.length; i += 1) {
+    if (sa[i] !== sb[i]) return sb[i] - sa[i];
+  }
+  return 0;
 }
 
 async function findBookByBoardGradeSubject(boardCode: string, grade: string, subjectSlug: string, token: string | null) {
   try {
     const books = await getBooksServer(token, { grade, subject: subjectSlug });
     const bookArray = Array.isArray(books) ? books : (books?.books || []);
+    const normalizedBoardCode = normalizeSegment(boardCode);
+    const normalizedGrade = normalizeSegment(grade);
+    const allowAnyGrade = isAllGrade(grade);
 
     for (const book of bookArray) {
-      const bookBoardCode = book.board_id?.short_code || book.board_id?.slug || '';
-      if (bookBoardCode.toUpperCase() === boardCode.toUpperCase() && book.grade === grade) {
+      const bookBoardCode = normalizeSegment(book.board_id?.short_code || book.board_id?.slug || book.board_short_code || '');
+      const bookGrade = normalizeSegment(book.grade);
+      if (
+        bookBoardCode === normalizedBoardCode &&
+        (allowAnyGrade || gradesMatch(bookGrade, normalizedGrade) || gradesMatch(book.metadata?.grade_level, normalizedGrade))
+      ) {
         return book;
       }
     }
 
     if (bookArray.length > 0) {
-      return bookArray[0];
+      const sameBoardBooks = bookArray.filter((book: any) => {
+        return normalizeSegment(book.board_id?.short_code || book.board_id?.slug || book.board_short_code || '') === normalizedBoardCode;
+      });
+
+      const pool = (sameBoardBooks.length > 0 ? sameBoardBooks : bookArray).filter((book: any) => {
+        return allowAnyGrade || gradesMatch(book.grade, normalizedGrade) || gradesMatch(book.metadata?.grade_level, normalizedGrade);
+      });
+
+      if (pool.length > 0) {
+        pool.sort(compareBooks);
+        return pool[0];
+      }
+
+      const fallbackPool = sameBoardBooks.length > 0 ? sameBoardBooks : bookArray;
+      fallbackPool.sort(compareBooks);
+      return fallbackPool[0];
     }
   } catch (error) {
     console.error('Error finding book:', error);
@@ -35,104 +108,120 @@ export default async function ReaderPage({
   params: Promise<{ slug?: string[] }>;
 }) {
   const resolvedParams = await params;
-  const slugs = resolvedParams.slug ?? [];
+  const slugArray = resolvedParams.slug || [];
 
-  const parsed = parseReaderPath(slugs);
+  let boardCode = slugArray[0] || null;
+  let grade = slugArray[1] || null;
+  let subjectSlug = slugArray[2] || null;
+  let chapterSlug = slugArray[3] || null;
+  let topicSlug = slugArray[4] || null;
 
-  if (!parsed.boardCode || !parsed.grade || !parsed.subjectSlug) {
+  // 1. DEFENSIVE LOOKUP: If we don't have enough slugs, try to resolve the book metadata
+  if (slugArray.length < 3 && slugArray.length > 0) {
+    const idOrSlug = slugArray[0];
+    try {
+      const meta = await getBookBySubjectServer(null, idOrSlug);
+      if (meta && meta.boardSlug && meta.grade) {
+        boardCode = meta.boardSlug;
+        grade = String(meta.grade);
+        subjectSlug = idOrSlug;
+        // Shift other slugs if they exist
+        chapterSlug = slugArray[1] || null;
+        topicSlug = slugArray[2] || null;
+      }
+    } catch (e) {
+      console.error('Defensive lookup failed:', e);
+    }
+  }
+
+  // Final check for required parameters
+  if (!boardCode || !grade || !subjectSlug) {
     notFound();
   }
 
-  const { boardCode, grade, subjectSlug, chapterSlug, topicSlug } = parsed;
-
   try {
-    const token = null;
+    const session = await getServerSession(authOptions);
+    const token = (session?.user as any)?.token || null;
+    const isLoggedIn = !!session?.user;
+
     const book = await findBookByBoardGradeSubject(boardCode, grade, subjectSlug, token);
 
     if (!book) {
       notFound();
     }
 
-    let chapter = null;
-    let topic = null;
-
-    // If we have both chapter and topic slugs, use the new nested slug API
-    if (chapterSlug && topicSlug) {
-      try {
-        const topicResponse = await getTopicByNestedSlugs(boardCode, grade, subjectSlug, chapterSlug, topicSlug);
-        if (topicResponse && topicResponse.data && topicResponse.data.topic) {
-          topic = topicResponse.data.topic;
-          chapter = topicResponse.data.chapter || null;
+    // 2. FETCH CHAPTERS AND TOPICS IN PARALLEL (Server-side)
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+    const chaptersResponse = await fetch(
+      `${API_URL}/books/${book._id}/chapters`,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         }
-      } catch (error) {
-        console.error('Error fetching topic by nested slugs:', error);
-        // Fallback to old method if new API fails
       }
+    );
+
+    if (!chaptersResponse.ok) {
+      notFound();
     }
 
-    // Fallback: if topic not found via new API, try old method
-    if (!topic && chapterSlug) {
-      const chaptersResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/books/${book._id}/chapters`,
-        { headers: { 'Content-Type': 'application/json' } }
-      );
-      const chaptersData = await chaptersResponse.json();
-      
-      // Handle both old raw array and new {success, data} format
-      const chapters = chaptersData?.data || chaptersData || [];
-      chapter = Array.isArray(chapters) ? chapters.find((c: any) => c.slug === chapterSlug) : null;
+    const chaptersData = await chaptersResponse.json();
+    const chapters = chaptersData?.data?.chapters || chaptersData?.chapters || [];
 
-      if (topicSlug && chapter && !topic) {
-        const topicsResponse = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api/v1'}/chapters/${chapter._id}/topics`,
-          { headers: { 'Content-Type': 'application/json' } }
-        );
-        const topicsData = await topicsResponse.json();
-        
-        // Handle both old raw array and new {success, data} format
-        const topics = topicsData?.data || topicsData || [];
-        topic = Array.isArray(topics) ? topics.find((t: any) => t.slug === topicSlug) : null;
+    // Fetch topics for all chapters in parallel
+    const chaptersWithTopics = await Promise.all(
+      chapters.map(async (ch: any) => {
+        try {
+          const res = await fetch(
+            `${API_URL}/chapters/${ch._id}/topics`,
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+              }
+            }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            return {
+              ...ch,
+              topics: data.data?.topics || data.data || []
+            };
+          }
+        } catch (e) {
+          console.error(`Error fetching topics for chapter ${ch._id}:`, e);
+        }
+        return { ...ch, topics: [] };
+      })
+    );
+
+    // Flatten all topics to pass to the viewer
+    const allTopics = chaptersWithTopics.flatMap((ch: any) => ch.topics);
+
+    const program = book.program_id || { name: 'Matriculation' };
+
+    let initialChapterNumber = null;
+    if (chapterSlug) {
+      const activeCh = chapters.find((ch: any) => ch.slug === chapterSlug);
+      if (activeCh) {
+        initialChapterNumber = activeCh.chapter_number;
       }
     }
 
     return (
-      <div className="p-8">
-        <h1 className="text-2xl font-bold">{book.title}</h1>
-        <div className="mt-4 space-y-2 text-sm text-slate-600">
-          <p><strong>Board:</strong> {boardCode} ({grade})</p>
-          <p><strong>Subject:</strong> {subjectSlug}</p>
-          {chapter && <p><strong>Chapter:</strong> {chapter.title} ({chapterSlug})</p>}
-          {topic && <p><strong>Topic:</strong> {topic.title} ({topicSlug})</p>}
-        </div>
-
-        <div className="mt-6 p-4 bg-slate-50 rounded-lg">
-          <h2 className="font-semibold mb-2">URL Structure Verified</h2>
-          <p className="text-sm font-mono">
-            {topic
-              ? topicUrl(boardCode, grade, subjectSlug, chapterSlug!, topicSlug)
-              : chapter
-                ? chapterUrl(boardCode, grade, subjectSlug, chapterSlug!)
-                : bookUrl(boardCode, grade, subjectSlug)
-            }
-          </p>
-        </div>
-
-        {!chapter && !topic && (
-          <p className="mt-8 text-slate-500 italic">
-            Select a chapter to begin reading.
-          </p>
-        )}
-
-        {topic && (
-          <div className="mt-8 prose max-w-none">
-            <h2 className="text-xl font-bold">{topic.title}</h2>
-            <div dangerouslySetInnerHTML={{ __html: topic.clean_html || topic.content || '' }} />
-          </div>
-        )}
-      </div>
+      <FullBookViewer
+        book={book}
+        program={program}
+        chapters={chaptersWithTopics}
+        topics={allTopics}
+        isLoggedIn={isLoggedIn}
+        initialChapterNumber={initialChapterNumber}
+        initialTopicSlug={topicSlug}
+      />
     );
   } catch (error) {
-    console.error('Reader fetch error:', error);
+    console.error('Reader render error:', error);
     notFound();
   }
 }

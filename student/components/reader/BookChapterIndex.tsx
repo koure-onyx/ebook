@@ -97,7 +97,10 @@ export function BookChapterIndex({ book, program, chapters, subjectSlug, boardSl
         throw new Error(data.error || 'Failed to load topics');
       }
 
-      setTopicsByChapter((prev) => ({ ...prev, [chapter._id]: data.data || [] }));
+      setTopicsByChapter((prev) => ({
+        ...prev,
+        [chapter._id]: data.data?.topics || data.data || [],
+      }));
     } catch (error) {
       setTopicErrors((prev) => ({
         ...prev,

@@ -5,17 +5,50 @@ function toPathSegment(value: string | number | null | undefined) {
   return String(value).trim().replace(/\s+/g, '-').replace(/\/+/g, '-');
 }
 
+function normalizeSegment(value: string | number | null | undefined) {
+  return toPathSegment(value).toLowerCase();
+}
+
+function resolveGradeSegment(opts?: { programSlug?: string; grade?: string | number }) {
+  const explicitGrade = normalizeSegment(opts?.grade);
+  if (explicitGrade) {
+    return explicitGrade;
+  }
+
+  const programSlug = normalizeSegment(opts?.programSlug);
+  if (!programSlug) {
+    return '9';
+  }
+
+  const directMatch = programSlug.match(/^(?:grade-)?(all|\d{1,2})$/);
+  if (directMatch) {
+    return directMatch[1];
+  }
+
+  const prefixMatch = programSlug.match(/^(?:matric|intermediate|primary|middle)[-_](\d{1,2})$/);
+  if (prefixMatch) {
+    return prefixMatch[1];
+  }
+
+  if (programSlug === 'matriculation') return '9';
+  if (programSlug === 'intermediate') return '11';
+  if (programSlug === 'primary') return '1';
+  if (programSlug === 'middle') return '6';
+
+  return '9';
+}
+
 export function bookUrl(
   subjectSlug: string,
   opts?: { boardSlug?: string; programSlug?: string; grade?: string | number }
 ) {
-  const boardShortCode = opts?.boardSlug || 'pctb';
-  const grade = opts?.grade || opts?.programSlug || '9';
+  const boardShortCode = opts?.boardSlug || 'PUB';
+  const grade = resolveGradeSegment(opts);
   
   const segments = [
-    toPathSegment(boardShortCode),
-    toPathSegment(grade),
-    toPathSegment(subjectSlug)
+    normalizeSegment(boardShortCode),
+    normalizeSegment(grade),
+    normalizeSegment(subjectSlug)
   ].filter(Boolean);
 
   return `/books/${segments.join('/')}`;

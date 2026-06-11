@@ -44,20 +44,22 @@ export function BookCard({ book }: BookCardProps) {
   const IconComponent = config.icon;
 
   // Extract board short_code from populated board_id or fallback fields
-  const boardCode = 
+  const boardCode = (
     book.board_id?.short_code || 
     book.board_short_code || 
     book.board_slug || 
-    'PUB';
+    'PUB'
+  ).toLowerCase();
 
-  // Extract grade - ensure it's a string for URL
-  const grade = String(book.grade || '9');
+  // Extract grade - ensure it's a valid string for URL (handle "All" grades)
+  const rawGrade = book.grade;
+  const grade = (rawGrade === 'All' || !rawGrade) ? 'all' : String(rawGrade).toLowerCase();
 
   // Extract subject slug
   const subject = book.subject_slug || book.slug || book._id;
 
-  // CORRECT URL: /books/[boardCode]/[grade]/[subject_slug]
-  const readerHref = bookUrl(boardCode, grade, subject);
+  // URL format: /books/[boardCode]/[grade]/[subject_slug]
+  const readerHref = bookUrl(subject, { boardSlug: boardCode, grade });
 
   return (
     <motion.div

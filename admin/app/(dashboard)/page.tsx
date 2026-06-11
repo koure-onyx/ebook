@@ -8,11 +8,20 @@ import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
+function normalizeGradeForUrl(value: string | number | undefined | null) {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (!normalized) return '9';
+  if (normalized.includes('all')) return 'all';
+  const numeric = normalized.match(/\d{1,2}/)?.[0];
+  if (numeric) return numeric;
+  return normalized.replace(/^class[-\s]*/i, '').replace(/^grade[-\s]*/i, '') || '9';
+}
+
 export default async function AdminDashboardPage() {
   const session = await getServerSession(authOptions);
   
   if (!session?.user) {
-    redirect('/api/auth/signin');
+    redirect('/login');
   }
 
   const token = (session.user as any).token;
@@ -107,7 +116,7 @@ export default async function AdminDashboardPage() {
                         {book.is_live ? 'Live' : 'Draft'}
                       </span>
                       <a
-                        href={`${studentAppUrl}/${book.subject_slug || book.slug}`}
+                        href={`${studentAppUrl}/books/${String(book.board_id?.short_code || book.board_short_code || 'pub').toLowerCase()}/${normalizeGradeForUrl(book.grade || book.metadata?.grade_level)}/${book.subject_slug || book.slug}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100"

@@ -32,7 +32,7 @@ export const authOptions: NextAuthOptions = {
                 const token = data.data?.tokens?.accessToken || data.data?.token;
                 const user = data.data?.user;
                 return { 
-                  id: user?._id || email, 
+                  id: user?.id || email, 
                   email, 
                   name: user?.name || 'Admin User',
                   role: user?.role || 'admin',
@@ -97,13 +97,16 @@ export const authOptions: NextAuthOptions = {
       if ((user as any)?.backendToken) {
         token.backendToken = (user as any).backendToken;
       }
+      
       // Store role in token
-      if ((account as any)?.userRole) {
+      if (user) {
+        token.role = (user as any).role || 'admin';
+      }
+      
+      if (account && (account as any).userRole) {
         token.role = (account as any).userRole;
       }
-      if ((user as any)?.role) {
-        token.role = (user as any).role;
-      }
+
       return token;
     },
 
@@ -114,8 +117,20 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token.admin`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+  },
   pages: {
-    signIn: '/api/auth/signin',
+    signIn: '/login',
+    error: '/login',
   },
   secret: process.env.NEXTAUTH_SECRET,
 };

@@ -147,7 +147,7 @@ export default function SearchResultRow({ result }: SearchResultRowProps) {
         topic.chapter.book.subject.toLowerCase(),
         topic.chapter.slug,
         topic.slug,
-        { boardSlug: 'PB', programSlug: `grade-${topic.chapter.book.grade}` }
+        { boardSlug: 'PUB', programSlug: `grade-${topic.chapter.book.grade}` }
       );
     }
     if (result.type === "chapter") {
@@ -155,7 +155,7 @@ export default function SearchResultRow({ result }: SearchResultRowProps) {
       return chapterUrl(
         chapter.book.subject.toLowerCase(),
         chapter.slug,
-        { boardSlug: 'PB', programSlug: `grade-${chapter.book.grade}` }
+        { boardSlug: 'PUB', programSlug: `grade-${chapter.book.grade}` }
       );
     }
     if (result.type === "subject") {
@@ -166,15 +166,11 @@ export default function SearchResultRow({ result }: SearchResultRowProps) {
   };
 
   return (
-    <Link href={getHref()}>
+    <Link href={getStudyLink()}>
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-<<<<<<< Updated upstream
-        className= "group p-4 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30 transition-all duration-200\"
-=======
-        className="group p-4 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30 transition-all duration-200\"
->>>>>>> Stashed changes
+        className="group p-4 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30 transition-all duration-200 cursor-pointer"
       >
         <div className="flex items-start justify-between">
           <div className="flex-1">

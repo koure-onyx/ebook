@@ -4,11 +4,13 @@ import { api, requestServer } from './client';
 export interface Book {
   _id: string;
   title: string;
+  subject?: string;
   subject_slug: string;
   board_id: string;
   program_id: string;
   grade: string;
   edition_year: number;
+  is_live?: boolean;
   cover_image?: string;
   description?: string;
   created_at: string;
@@ -52,11 +54,15 @@ export interface ContentHealth {
 export interface IngestPayload {
   book_metadata: {
     title: string;
+    subject: string;
     subject_slug: string;
-    board_id: string;
-    program_id: string;
-    grade: string;
+    board: string;
+    grade_level: string;
     edition_year: number;
+    publisher?: string;
+    authors?: string[];
+    language?: string;
+    script_direction?: string;
     cover_image?: string;
     description?: string;
   };
@@ -64,13 +70,32 @@ export interface IngestPayload {
     chapter_number: number;
     title: string;
     slug: string;
-    description?: string;
+    chapter_number_display?: string;
+    chapter_summary?: string;
+    page_start?: number;
+    page_end?: number;
+    student_learning_outcomes?: string[];
+    seo?: Record<string, any>;
   };
   topics: Array<{
     topic_number: number;
     title: string;
     slug: string;
+    title_urdu?: string;
+    display_order?: number;
+    difficulty?: string;
+    estimated_read_time?: number;
+    edition_year?: number;
+    seo?: Record<string, any>;
+    raw_text?: string;
+    clean_html?: string;
     content_blocks: any[];
+    formulas?: any[];
+    key_terms?: any[];
+    book_mcqs?: any[];
+    book_short_questions?: any[];
+    book_problems?: any[];
+    keywords?: string[];
   }>;
 }
 

@@ -46,7 +46,7 @@ export function ChapterReader({
         const response = await fetch(url);
         const result = await response.json();
         if (result.success && result.data) {
-          setTopics(result.data);
+          setTopics(result.data?.topics || result.data || []);
         }
       } catch (error) {
         console.error('Failed to load topics:', error);

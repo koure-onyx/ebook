@@ -62,24 +62,30 @@ export function OnboardingForm() {
       // Map grade to backend schema format
       const gradeValue = grade.replace(/^Class\s*/i, '').replace(/^Grade\s*/i, '');
       
-      const response = await fetch('/api/user/onboarding', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/onboarding`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(session?.user as any)?.token}`
+        },
         body: JSON.stringify({ 
           board, 
           grade: gradeValue,
-          section 
+          className: section 
         }),
       });
       const data = await response.json();
 
       if (!data.success) {
-        setError(data.error || 'Could not save your profile.');
+        setError(data.error?.message || data.error || 'Could not save your profile.');
         return;
       }
 
       // Refresh session to update user data
-      await update();
+      await update({
+        board: board,
+        grade: gradeValue
+      });
       router.push('/dashboard');
     } catch {
       setError('Network error. Please try again.');

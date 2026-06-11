@@ -15,7 +15,11 @@ export class ApiError extends Error {
 
 async function getTokenFromSession(): Promise<string | null> {
   const session = await getSession();
-  return (session?.user as any)?.token || null;
+  const token = (session?.user as any)?.token;
+  if (token && typeof token === 'string') {
+    return token.replace(/['"]+/g, '').trim();
+  }
+  return null;
 }
 
 /**
@@ -55,9 +59,8 @@ async function request<T>(
     );
   }
 
-  // Handle 401 Unauthorized - sign out the user
+  // Handle 401 Unauthorized
   if (response.status === 401) {
-    await signOut({ callbackUrl: '/' });
     throw new ApiError(
       'UNAUTHORIZED',
       'Your session has expired. Please sign in again.',
@@ -158,9 +161,6 @@ export async function streamSSE(
   });
 
   if (!response.ok) {
-    if (response.status === 401) {
-      await signOut({ callbackUrl: '/' });
-    }
     const data = await response.json();
     throw new ApiError(
       data.error?.code || 'STREAM_ERROR',
@@ -217,6 +217,15 @@ export async function getBooksServer(token: string | null, params?: { subject?: 
 // Get book by subject slug (for legacy route redirect)
 export async function getBookBySubject(subjectSlug: string) {
   const data = await request<any>('GET', `/books/slug/${encodeURIComponent(subjectSlug)}`);
+  return {
+    boardSlug: data.board_slug,
+    programSlug: data.program_slug,
+    grade: data.grade,
+  };
+}
+
+export async function getBookBySubjectServer(token: string | null, subjectSlug: string) {
+  const data = await requestServer<any>('GET', `/books/slug/${encodeURIComponent(subjectSlug)}`, token);
   return {
     boardSlug: data.board_slug,
     programSlug: data.program_slug,
@@ -322,23 +331,28 @@ export async function getTopicByNestedSlugsServer(
   const program = gradeToProgramSlug(grade);
   const path = `/topics/by-nested-slug/${encodeURIComponent(board)}/${encodeURIComponent(program)}/${encodeURIComponent(subject)}/${encodeURIComponent(chapter)}/${encodeURIComponent(topic)}`;
   
-  const response = await requestServer<{
-    success: boolean;
-    data: {
+  try {
+    // requestServer already unwraps data.data, so we get { topic, chapter, ... } directly
+    const result = await requestServer<{
       topic: any;
       previousTopic: any | null;
       nextTopic: any | null;
       book: any;
       program: any;
       chapter: any;
-    };
-  }>("GET", path, token);
-  
-  if (!response.success) {
-    throw new ApiError("TOPIC_NOT_FOUND", "Topic not found", 404);
+    }>("GET", path, token);
+    
+    return result;
+  } catch (err) {
+    // If program slug doesn't match (e.g. 'matriculation' vs 'matric-9'), try fallback with grade
+    const fallbackPath = `/topics/by-nested-slug/${encodeURIComponent(board)}/${encodeURIComponent(grade)}/${encodeURIComponent(subject)}/${encodeURIComponent(chapter)}/${encodeURIComponent(topic)}`;
+    try {
+      const result = await requestServer<any>("GET", fallbackPath, token);
+      return result;
+    } catch {
+      throw err;
+    }
   }
-  
-  return response.data;
 }
 
 export async function getTopicBySlugServer(token: string | null, subjectSlug: string, chapterNumber: string, topicSlug: string) {

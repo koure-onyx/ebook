@@ -23,14 +23,14 @@ export const navigationMap: NavItem[] = [
   // Main Dashboard
   {
     title: 'Dashboard',
-    path: '/admin',
+    path: '/',
     icon: LayoutDashboard,
     roles: ['admin'],
     category: 'main'
   },
   {
     title: 'Analytics',
-    path: '/admin/analytics',
+    path: '/analytics',
     icon: BarChart3,
     roles: ['admin'],
     category: 'main'
@@ -39,28 +39,28 @@ export const navigationMap: NavItem[] = [
   // Content Management
   {
     title: 'Books',
-    path: '/admin/books',
+    path: '/books',
     icon: Library,
     roles: ['admin'],
     category: 'content'
   },
   {
     title: 'Chapters',
-    path: '/admin/chapters',
+    path: '/chapters',
     icon: FileText,
     roles: ['admin'],
     category: 'content'
   },
   {
     title: 'Topics',
-    path: '/admin/topics',
+    path: '/topics',
     icon: Brain,
     roles: ['admin'],
     category: 'content'
   },
   {
     title: 'Courses',
-    path: '/admin/courses',
+    path: '/courses',
     icon: BookOpen,
     roles: ['admin'],
     category: 'content'
@@ -69,7 +69,7 @@ export const navigationMap: NavItem[] = [
   // AI Ingestion
   {
     title: 'AI Ingestion',
-    path: '/admin/books/ingest',
+    path: '/books/ingest',
     icon: Upload,
     roles: ['admin'],
     category: 'ingestion'
@@ -78,14 +78,14 @@ export const navigationMap: NavItem[] = [
   // User Management
   {
     title: 'Users',
-    path: '/admin/users',
+    path: '/users',
     icon: Users,
     roles: ['admin'],
     category: 'users'
   },
   {
     title: 'Roles & Permissions',
-    path: '/admin/roles',
+    path: '/roles',
     icon: Shield,
     roles: ['admin'],
     category: 'users'
@@ -94,7 +94,7 @@ export const navigationMap: NavItem[] = [
   // Settings
   {
     title: 'Settings',
-    path: '/admin/settings',
+    path: '/settings',
     icon: Settings,
     roles: ['admin'],
     category: 'settings'

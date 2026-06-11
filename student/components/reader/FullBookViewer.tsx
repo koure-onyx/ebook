@@ -19,7 +19,7 @@ export default function FullBookViewer({
   book,
   program,
   chapters,
-  topics: initialTopics,
+  topics = [],
   isLoggedIn,
   initialChapterNumber,
   initialTopicSlug,
@@ -28,19 +28,56 @@ export default function FullBookViewer({
   const subjectSlug = book.subject_slug || book.slug;
   const programSlug = program?.slug || program?.name?.toLowerCase().replace(/\s+/g, '-');
   const readerUrlOpts = {
-    boardSlug: book.board_id?.short_code || book.board_id?.slug,
+    boardSlug: (book.board_id?.short_code || book.board_short_code || 'PUB').toLowerCase(),
+    grade: book.grade || book.metadata?.grade_level,
     programSlug,
   };
   const urlUpdateRef = useRef<string>('');
   const didInitialScroll = useRef(false);
+
+  // Group topics by chapter initially
+  const initialTopicsByChapter = useMemo(() => {
+    const grouped: Record<string, any[]> = {};
+    topics.forEach((topic: any) => {
+      const cid = topic.chapter_id?._id?.toString() || topic.chapter_id?.toString() || topic.chapter_id;
+      if (cid) {
+        if (!grouped[cid]) grouped[cid] = [];
+        grouped[cid].push(topic);
+      }
+    });
+    return grouped;
+  }, [topics]);
 
   const [activeChapter, setActiveChapter] = useState<string | null>(null);
   const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const [highlightIndex, setHighlightIndex] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedChapters, setExpandedChapters] = useState<Record<string, boolean>>({});
-  const [topicsByChapter, setTopicsByChapter] = useState<Record<string, any[]>>({});
+  const [topicsByChapter, setTopicsByChapter] = useState<Record<string, any[]>>(initialTopicsByChapter);
   const [loadingChapters, setLoadingChapters] = useState<Set<string>>(new Set());
+
+  // Sync state if props change
+  useEffect(() => {
+    setTopicsByChapter(initialTopicsByChapter);
+  }, [initialTopicsByChapter]);
+
+  // Expand active chapter on mount
+  useEffect(() => {
+    if (initialTopicSlug) {
+      const targetTopic = topics.find((t: any) => t.slug === initialTopicSlug);
+      if (targetTopic) {
+        const cid = targetTopic.chapter_id?._id?.toString() || targetTopic.chapter_id?.toString() || targetTopic.chapter_id;
+        if (cid) {
+          setExpandedChapters((prev) => ({ ...prev, [cid]: true }));
+        }
+      }
+    } else if (initialChapterNumber != null) {
+      const chapter = chapters.find((c: any) => c.chapter_number === initialChapterNumber);
+      if (chapter) {
+        setExpandedChapters((prev) => ({ ...prev, [chapter._id]: true }));
+      }
+    }
+  }, [initialTopicSlug, initialChapterNumber, topics, chapters]);
 
   const searchParams = useSearchParams();
   const previewParam = searchParams.get('preview') === 'true' ? '?preview=true' : '';
@@ -55,7 +92,7 @@ export default function FullBookViewer({
       if (data.success) {
         setTopicsByChapter((prev) => ({
           ...prev,
-          [chapterId]: data.data,
+          [chapterId]: data.data?.topics || data.data || [],
         }));
       }
     } catch (error) {

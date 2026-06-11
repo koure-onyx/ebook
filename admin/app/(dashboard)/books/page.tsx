@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AlertTriangle, BookOpen, ChevronDown, ChevronRight, Eye, Layers, RefreshCw, Sparkles, Trash2 } from 'lucide-react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -21,6 +22,7 @@ type Book = {
   title: string;
   subject: string;
   subject_slug: string;
+  grade: string;
   edition_year: number;
   is_live: boolean;
   total_chapters?: number;
@@ -28,11 +30,13 @@ type Book = {
   total_topics?: number;
   program_id?: { name?: string; slug?: string };
   board_id?: { name?: string; short_code?: string };
+  board_short_code?: string; // Fallback for direct access
   chapters?: Chapter[];
   slug?: string;
 };
 
 export default function ManageBooksPage() {
+  const router = useRouter();
   const [books, setBooks] = useState<Book[]>([]);
   const [expandedBooks, setExpandedBooks] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -85,10 +89,17 @@ export default function ManageBooksPage() {
     const id = bookKey(book);
     try {
       setPreviewingId(id);
-      // Open student app directly with book slug
-      const studentAppUrl = process.env.NEXT_PUBLIC_STUDENT_APP_URL || 'http://localhost:3000';
-      const url = `${studentAppUrl}/${book.subject_slug || book.slug}`;
-      window.open(url, '_blank', 'noopener,noreferrer');
+      // Navigate to internal admin book viewer with proper URL format: /books/[boardCode]/[grade]/[subject_slug]
+      const boardCode = (book.board_id?.short_code || book.board_short_code || 'PUB').toLowerCase();
+      const grade = book.grade === 'All' ? 'all' : String(book.grade || '9').toLowerCase();
+      const subjectSlug = book.subject_slug || book.slug;
+      
+      if (!boardCode || !grade || !subjectSlug) {
+        throw new Error('Missing book metadata (board, grade, or slug) required for preview.');
+      }
+
+      const url = `/books/${boardCode.toLowerCase()}/${grade}/${subjectSlug}`;
+      router.push(url);
     } catch (error) {
       setResult({
         success: false,

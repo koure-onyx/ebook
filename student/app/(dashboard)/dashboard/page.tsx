@@ -237,7 +237,7 @@ async function DashboardContent() {
                   <a
                     href={bookUrl(book.subject_slug, {
                       boardSlug: book.board_short_code || book.board_slug,
-                      programSlug: book.program_slug,
+                      grade: book.grade,
                     })}
                     className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium"
                   >
