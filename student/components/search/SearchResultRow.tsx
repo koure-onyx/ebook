@@ -77,11 +77,11 @@ export default function SearchResultRow({ result }: SearchResultRowProps) {
   const getBreadcrumb = () => {
     if (result.type === "topic") {
       const topic = result.data as TopicResult;
-      
+
       // Try to get book data from multiple possible locations
       const bookData = topic.book || topic.chapter?.book;
       const chapterData = topic.chapter;
-      
+
       if (!bookData || !chapterData) {
         return (
           <p className="text-sm text-slate-500 mt-0.5">
@@ -89,9 +89,9 @@ export default function SearchResultRow({ result }: SearchResultRowProps) {
           </p>
         );
       }
-      
+
       const grade = typeof bookData.grade === 'number' ? bookData.grade : parseInt(String(bookData.grade)) || 9;
-      
+
       return (
         <p className="text-sm text-slate-500 mt-0.5">
           {topic.chapter.book.subject} Grade {topic.chapter.book.grade} › {topic.chapter.title}
@@ -170,7 +170,11 @@ export default function SearchResultRow({ result }: SearchResultRowProps) {
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
+<<<<<<< Updated upstream
         className= "group p-4 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30 transition-all duration-200\"
+=======
+        className="group p-4 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30 transition-all duration-200\"
+>>>>>>> Stashed changes
       >
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -180,11 +184,11 @@ export default function SearchResultRow({ result }: SearchResultRowProps) {
               </h3>
               {getTypeBadge()}
             </div>
-            
+
             {getBreadcrumb()}
             {getMetadata()}
           </div>
-          
+
           <BookOpen className="h-5 w-5 text-slate-400 group-hover:text-emerald-600 transition-colors mt-0.5" />
         </div>
       </motion.div>
