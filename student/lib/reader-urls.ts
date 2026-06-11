@@ -6,10 +6,12 @@ function toPathSegment(value: string | number | null | undefined) {
 }
 
 export function bookUrl(
-  boardShortCode: string,
-  grade: string | number,
-  subjectSlug: string
+  subjectSlug: string,
+  opts?: { boardSlug?: string; programSlug?: string; grade?: string | number }
 ) {
+  const boardShortCode = opts?.boardSlug || 'pctb';
+  const grade = opts?.grade || opts?.programSlug || '9';
+  
   const segments = [
     toPathSegment(boardShortCode),
     toPathSegment(grade),
@@ -20,23 +22,21 @@ export function bookUrl(
 }
 
 export function chapterUrl(
-  boardShortCode: string,
-  grade: string | number,
   subjectSlug: string,
-  chapterSlug: string
+  chapterSlug: string,
+  opts?: { boardSlug?: string; programSlug?: string; grade?: string | number }
 ) {
-  const base = bookUrl(boardShortCode, grade, subjectSlug);
+  const base = bookUrl(subjectSlug, opts);
   return `${base}/${toPathSegment(chapterSlug)}`;
 }
 
 export function topicUrl(
-  boardShortCode: string,
-  grade: string | number,
   subjectSlug: string,
   chapterSlug: string,
-  topicSlug: string
+  topicSlug: string,
+  opts?: { boardSlug?: string; programSlug?: string; grade?: string | number }
 ) {
-  const base = chapterUrl(boardShortCode, grade, subjectSlug, chapterSlug);
+  const base = chapterUrl(subjectSlug, chapterSlug, opts);
   return `${base}/${toPathSegment(topicSlug)}`;
 }
 
