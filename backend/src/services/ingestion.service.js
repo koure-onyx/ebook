@@ -149,6 +149,7 @@ export async function ingestBook(deepseekJson, adminUserId) {
     }
 
     // STEP 3: Upsert Book — handle version control
+    // Auto-generate slugs if not provided in metadata
     const subjectSlug = generateSlug(book_metadata.subject_slug || book_metadata.subject);
     const bookSlug = generateSlug(
       book_metadata.slug ||
