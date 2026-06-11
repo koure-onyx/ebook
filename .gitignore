@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-<<<<<<< Updated upstream
-Nothing needs to be added to the .gitignore file based on the provided file changes, as they only include source code files (.css, .js) and there are no build artifacts, dependencies, or temporary files in the change list.
-=======
+
 node_modules/
 dist/
 build/
