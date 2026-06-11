@@ -3,6 +3,9 @@ import { Topic } from '../models/Topic.js';
 import { Chapter } from '../models/Chapter.js';
 import  QuranVerse  from '../models/QuranVerse.js';
 import { Program } from '../models/Program.js';
+import { Board } from '../models/Board.js';
+import * as bookService from './book.service.js';
+import mongoose from 'mongoose';
 
 /**
  * Escape special regex characters
@@ -35,27 +38,29 @@ function quranBookFilter() {
 /**
  * Scoped book filter based on user's board and grade
  */
-function scopedBookFilter(board, grade, isLoggedIn) {
+function scopedBookFilter(boardId, programId, gradeName, isLoggedIn) {
   const base = { is_current_edition: { $ne: false } };
   
-  if (!isLoggedIn || (!board && !grade)) {
+  if (!isLoggedIn || (!boardId && !programId && !gradeName)) {
     return base;
   }
 
   const scopeParts = [base];
   
-  if (board) {
-    scopeParts.push({ 
-      $or: [{ board }, { 'metadata.board': board }] 
-    });
+  if (boardId) {
+    scopeParts.push({ board_id: boardId });
   }
   
-  if (grade) {
+  if (programId) {
+    scopeParts.push({ program_id: programId });
+  } else if (gradeName) {
+    const gradeCore = gradeName.split('(')[0].trim();
     scopeParts.push({
       $or: [
-        { grade }, 
-        { 'metadata.grade': grade }, 
-        { 'metadata.grade_level': grade }
+        { grade: gradeName }, 
+        { 'metadata.grade': gradeName }, 
+        { 'metadata.grade_level': gradeName },
+        { title: new RegExp(escapeRegex(gradeCore), 'i') }
       ],
     });
   }
@@ -115,6 +120,18 @@ export async function globalSearch(query, options = {}) {
     return results;
   }
 
+  // Resolve board/grade slugs if they aren't ObjectIds
+  let boardId = board;
+  let programId = null;
+  let gradeName = grade;
+
+  if (board && !mongoose.Types.ObjectId.isValid(board)) {
+    const profile = await bookService.resolveUserContentProfile({ board, grade });
+    boardId = profile.boardId;
+    programId = profile.programId;
+    gradeName = profile.gradeName;
+  }
+
   const q = query.trim();
   const searchRegex = regex(q);
 
@@ -124,7 +141,7 @@ export async function globalSearch(query, options = {}) {
 
   // Fetch books by grade number if applicable
   if (gradeNum && gradeNum >= 1 && gradeNum <= 12) {
-    const gradeScope = scopedBookFilter(board, grade, isLoggedIn);
+    const gradeScope = scopedBookFilter(boardId, programId, gradeName, isLoggedIn);
     let gradeBooks = await Book.find({
       $and: [
         { is_live: true },
@@ -176,8 +193,8 @@ export async function globalSearch(query, options = {}) {
     ],
   };
 
-  if (isLoggedIn && (board || grade)) {
-    const scoped = scopedBookFilter(board, grade, isLoggedIn);
+  if (isLoggedIn && (boardId || gradeName)) {
+    const scoped = scopedBookFilter(boardId, programId, gradeName, isLoggedIn);
     textBookFilter.$and = [scoped];
   }
 
@@ -210,8 +227,8 @@ export async function globalSearch(query, options = {}) {
     ],
   };
 
-  if (isLoggedIn && (board || grade)) {
-    const matchingBooks = await Book.find(scopedBookFilter(board, grade, isLoggedIn)).select('_id').lean();
+  if (isLoggedIn && (boardId || gradeName)) {
+    const matchingBooks = await Book.find(scopedBookFilter(boardId, programId, gradeName, isLoggedIn)).select('_id').lean();
     topicFilter.book_id = { $in: matchingBooks.map(book => book._id) };
   }
 
@@ -314,7 +331,7 @@ export async function globalSearch(query, options = {}) {
  * Search with filters (legacy support)
  */
 export async function searchWithFilters(filters) {
-  const { query, boardId, programId, classLevel, type = 'all' } = filters;
+  let { query, boardId, programId, classLevel, type = 'all' } = filters;
 
   const bookQuery = {};
   const topicQuery = {};
@@ -331,12 +348,27 @@ export async function searchWithFilters(filters) {
     ];
   }
 
-  if (boardId) {
+  // Resolve boardId/programId if they are slugs
+  if (boardId && !mongoose.Types.ObjectId.isValid(boardId)) {
+    const boardDoc = await Board.findOne({ 
+      $or: [{ slug: boardId }, { short_code: boardId.toUpperCase() }, { name: boardId }] 
+    }).select('_id');
+    if (boardDoc) boardId = boardDoc._id;
+  }
+
+  if (programId && !mongoose.Types.ObjectId.isValid(programId)) {
+    const programDoc = await Program.findOne({ 
+      $or: [{ slug: programId }, { name: programId }] 
+    }).select('_id');
+    if (programDoc) programId = programDoc._id;
+  }
+
+  if (boardId && mongoose.Types.ObjectId.isValid(boardId)) {
     bookQuery.board_id = boardId;
     topicQuery.board_id = boardId;
   }
 
-  if (programId) {
+  if (programId && mongoose.Types.ObjectId.isValid(programId)) {
     bookQuery.program_id = programId;
     topicQuery.program_id = programId;
   }

@@ -30,7 +30,7 @@ export function parseCatchAllSlug(slugArray) {
  */
 export async function getBooks(req, res, next) {
   try {
-    const { boardId, programId, classLevel, subject, grade, editionYear } = req.query;
+    const { boardId, programId, classLevel, subject, grade, editionYear, board } = req.query;
     const user = req.user || null;
 
     // Clean up filters - map to correct DB fields
@@ -39,10 +39,49 @@ export async function getBooks(req, res, next) {
     if (programId) additionalFilters.program_id = programId;
     if (classLevel) additionalFilters.classLevel = classLevel;
     if (subject) additionalFilters.subject_slug = subject;
-    if (grade) additionalFilters.grade = grade;
+    if (subject) additionalFilters.subject_slug = subject;
     if (editionYear) additionalFilters.edition_year = Number(editionYear);
+    
+    // Step B: Flexible grade matching
+    if (grade) {
+      const numericGrade = parseInt(String(grade).replace(/\D/g, ''), 10);
+      if (!isNaN(numericGrade)) {
+        additionalFilters.$or = [
+          { grade: grade },
+          { grade: numericGrade },
+          { grade: String(numericGrade) },
+          { grade: new RegExp(`\\b${numericGrade}\\b`, 'i') }
+        ];
+      } else {
+        additionalFilters.grade = new RegExp(`^${grade}$`, 'i');
+      }
+    }
+    
+    if (board && !boardId) {
+      // Import inline to avoid circular dependencies if any, or just use mongoose
+      const mongoose = (await import('mongoose')).default;
+      const Board = mongoose.model('Board');
+      const boardDoc = await Board.findOne({ short_code: board });
+      if (boardDoc) {
+        additionalFilters.board_id = boardDoc._id;
+      } else {
+        // Return early if board short code does not exist, to avoid pulling all books
+        return res.json(success({ books: [], isAuthenticated: !!user }));
+      }
+    }
 
-    const books = await bookService.getBooksForUser(user, additionalFilters);
+    let books = await bookService.getBooksForUser(user, additionalFilters);
+    
+    // Step C: Fallback query if strict lookup with grade fails
+    if (books.length === 0 && additionalFilters.board_id && subject && grade) {
+      const fallbackFilters = { ...additionalFilters };
+      delete fallbackFilters.grade;
+      delete fallbackFilters.$or;
+      const fallbackBooks = await bookService.getBooksForUser(user, fallbackFilters);
+      if (fallbackBooks.length > 0) {
+        books = fallbackBooks;
+      }
+    }
     
     // Standardized response format matching DeepSeek schema
     res.json(success({
@@ -58,7 +97,16 @@ export async function getBooks(req, res, next) {
         seo: book.seo || { meta_title: '', meta_description: '', keywords: [] },
         total_chapters: book.chapter_count || 0,
         is_live: book.is_live || false,
-        is_public: book.is_public !== false
+        is_public: book.is_public !== false,
+        // Include board info for URL generation
+        board_id: book.board_id ? {
+          _id: book.board_id._id,
+          name: book.board_id.name,
+          slug: book.board_id.slug,
+          short_code: book.board_id.short_code
+        } : null,
+        board_short_code: book.board_id?.short_code || null,
+        board_slug: book.board_id?.slug || null
       })),
       isAuthenticated: !!user
     }));

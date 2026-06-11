@@ -309,6 +309,8 @@ export async function ingestBook(deepseekJson, adminUserId) {
       log,
       bookId: book._id,
       chapterId: chapterDoc._id,
+      boardShortCode: board.short_code,
+      grade: gradeVal,
       programSlug: program.slug,
       subjectSlug: book.subject_slug,
       chapterNumber: chapter.chapter_number,
@@ -413,6 +415,37 @@ export async function ingestTopicSimple(bookId, chapterId, topicData) {
   );
 
   return topic;
+}
+
+/**
+ * Validate book ingestion data
+ */
+export function validateIngestionData(data) {
+  if (!data) return { isValid: false, errors: ['Request body is empty'] };
+  const errors = [];
+  if (!data.book_metadata) errors.push('Missing book_metadata');
+  else {
+    const { title, subject, grade_level, board, edition_year } = data.book_metadata;
+    if (!title) errors.push('Missing book_metadata.title');
+    if (!subject) errors.push('Missing book_metadata.subject');
+    if (!grade_level) errors.push('Missing book_metadata.grade_level');
+    if (!board) errors.push('Missing book_metadata.board');
+    if (!edition_year) errors.push('Missing book_metadata.edition_year');
+  }
+  if (!data.chapter) errors.push('Missing chapter');
+  else {
+    const { title, slug, chapter_number } = data.chapter;
+    if (!title) errors.push('Missing chapter.title');
+    if (!slug) errors.push('Missing chapter.slug');
+    if (!chapter_number) errors.push('Missing chapter.chapter_number');
+  }
+  if (!Array.isArray(data.topics) || data.topics.length === 0) {
+    errors.push('Missing or empty topics array');
+  }
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
 }
 
 /**

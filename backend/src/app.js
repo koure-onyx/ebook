@@ -19,10 +19,15 @@ app.use(helmet({
 
 // CORS configuration
 app.use(cors({
-  origin: [env.STUDENT_ORIGIN, env.ADMIN_ORIGIN],
+  origin: [
+    env.STUDENT_ORIGIN,
+    env.ADMIN_ORIGIN,
+    'http://localhost:3000',
+    'http://localhost:3001'
+  ].filter(Boolean),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'cookie', 'x-csrf-token']
 }));
 
 // Body parsing middleware

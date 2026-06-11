@@ -30,7 +30,7 @@ function loadDotEnv() {
     const key = trimmed.slice(0, equalsIndex).trim();
     let value = trimmed.slice(equalsIndex + 1).trim();
 
-    if (!key || process.env[key] !== undefined) {
+    if (!key) {
       continue;
     }
 
@@ -89,3 +89,10 @@ export function validateEnv() {
 }
 
 export const env = validateEnv();
+
+console.log('--- Environment Configuration ---');
+console.log(`PORT: ${env.PORT}`);
+console.log(`NODE_ENV: ${env.NODE_ENV}`);
+console.log(`JWT_ACCESS_EXPIRES_IN: ${env.JWT_ACCESS_EXPIRES_IN}`);
+console.log(`JWT_REFRESH_EXPIRES_IN: ${env.JWT_REFRESH_EXPIRES_IN}`);
+console.log('---------------------------------');

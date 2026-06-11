@@ -51,12 +51,13 @@ export async function getTopic(req, res, next) {
 }
 
 /**
- * GET /topics/slug/:slug - Get topic by slug
+ * GET /topics/slug/:slug - Get topic by slug (single slug lookup)
  */
 export async function getTopicBySlug(req, res, next) {
   try {
     const { slug } = req.params;
-    const topic = await topicService.getTopicBySlug(slug);
+    // Use single-slug lookup (not the 5-param nested version)
+    const topic = await topicService.getTopicBySingleSlug(slug);
     
     if (!topic) {
       return res.status(404).json(error('Topic not found', 'TOPIC_NOT_FOUND'));
@@ -145,55 +146,67 @@ export async function getHotTopics(req, res, next) {
 
 /**
  * GET /topics/by-nested-slug/:boardSlug/:programSlug/:subjectSlug/:chapterSlug/:topicSlug
- * Matches frontend catch-all route pattern: /[board]/[program]/[subject]/[chapter]/[topic]
+ * Returns envelope: { success: true, data: { topic, chapter } }
  */
 export async function getNestedTopic(req, res, next) {
   try {
     const { boardSlug, programSlug, subjectSlug, chapterSlug, topicSlug } = req.params;
 
-    // Validate all required parameters
     if (!boardSlug || !programSlug || !subjectSlug || !chapterSlug || !topicSlug) {
       return res.status(400).json(error('Missing required parameters: boardSlug, programSlug, subjectSlug, chapterSlug, topicSlug', 'VALIDATION_ERROR'));
     }
 
-    // Call service with all 5 parameters as expected
-    const topic = await topicService.getTopicBySlug(boardSlug, programSlug, subjectSlug, chapterSlug, topicSlug);
+    const topicWithChapter = await topicService.getTopicBySlug(boardSlug, programSlug, subjectSlug, chapterSlug, topicSlug);
 
-    if (!topic) {
+    if (!topicWithChapter) {
       return res.status(404).json(error('Topic not found', 'TOPIC_NOT_FOUND'));
     }
 
-    // Ensure response matches DeepSeek schema exactly
+    // Destructure chapter out of the topic result
+    const { chapter, ...topicData } = topicWithChapter;
+
+    // Format topic matching DeepSeek schema
     const formattedTopic = {
-      _id: topic._id,
-      title: topic.title,
-      title_urdu: topic.title_urdu || '',
-      slug: topic.slug,
-      topic_number: topic.topic_number || '',
-      display_order: topic.display_order,
-      difficulty: topic.difficulty || 'medium',
-      estimated_read_time: topic.estimated_read_time || 3,
-      edition_year: topic.edition_year,
-      raw_text: topic.raw_text || '',
-      clean_html: topic.clean_html || '',
-      content_blocks: topic.content_blocks || [],
-      rendered_content_blocks: topic.rendered_content_blocks || [],
-      formulas: topic.formulas || [],
-      key_terms: topic.key_terms || [],
-      book_mcqs: topic.book_mcqs || [],
-      book_short_questions: topic.book_short_questions || [],
-      book_problems: topic.book_problems || [],
-      keywords: topic.keywords || [],
-      quran_reference: topic.quran_reference || null,
-      quran_word_alignments: topic.quran_word_alignments || [],
-      quran_textbook_translation: topic.quran_textbook_translation || '',
-      quran_textbook_tafsir: topic.quran_textbook_tafsir || '',
-      seo: topic.seo || { meta_title: '', meta_description: '', keywords: [], source_page: 0 },
-      user_progress: topic.user_progress || null
+      _id: topicData._id,
+      title: topicData.title,
+      title_urdu: topicData.title_urdu || '',
+      slug: topicData.slug,
+      topic_number: topicData.topic_number || '',
+      display_order: topicData.display_order,
+      difficulty: topicData.difficulty || 'medium',
+      estimated_read_time: topicData.estimated_read_time || 3,
+      edition_year: topicData.edition_year,
+      raw_text: topicData.raw_text || '',
+      clean_html: topicData.clean_html || '',
+      content_blocks: topicData.content_blocks || [],
+      rendered_content_blocks: topicData.rendered_content_blocks || [],
+      formulas: topicData.formulas || [],
+      key_terms: topicData.key_terms || [],
+      book_mcqs: topicData.book_mcqs || [],
+      book_short_questions: topicData.book_short_questions || [],
+      book_problems: topicData.book_problems || [],
+      keywords: topicData.keywords || [],
+      quran_reference: topicData.quran_reference || null,
+      quran_word_alignments: topicData.quran_word_alignments || [],
+      quran_textbook_translation: topicData.quran_textbook_translation || '',
+      quran_textbook_tafsir: topicData.quran_textbook_tafsir || '',
+      seo: topicData.seo || { meta_title: '', meta_description: '', keywords: [], source_page: 0 },
+      user_progress: topicData.user_progress || null
     };
 
-    // Return standardized JSON payload
-    res.json(success(formattedTopic));
+    // Return envelope matching what the client expects:
+    // { success: true, data: { topic, chapter, previousTopic, nextTopic, book, program } }
+    res.json({
+      success: true,
+      data: {
+        topic: formattedTopic,
+        chapter: chapter || null,
+        previousTopic: null,
+        nextTopic: null,
+        book: null,
+        program: null
+      }
+    });
   } catch (err) {
     next(err);
   }

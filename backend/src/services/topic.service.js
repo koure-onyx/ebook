@@ -37,36 +37,75 @@ export const getTopicById = async (topicId, userId = null) => {
 };
 
 /**
- * Get topic by slug path (board/program/subject/chapter/topic)
+ * Get topic by a single slug (for /slug/:slug route)
  */
-export const getTopicBySlug = async (boardSlug, programSlug, subjectSlug, chapterSlug, topicSlug) => {
-  const chapter = await Chapter.findOne({ 
-    slug: chapterSlug,
-    book_id: { $in: await Book.find({ 
-      board_id: { $in: await Board.find({ slug: boardSlug }).distinct('_id') },
-      program_id: { $in: await Program.find({ slug: programSlug, subject: subjectSlug }).distinct('_id') }
-    }).distinct('_id') }
-  });
-  
-  if (!chapter) return null;
-  
-  const topic = await Topic.findOne({ 
-    slug: topicSlug,
-    chapter_id: chapter._id 
-  })
+export const getTopicBySingleSlug = async (topicSlug) => {
+  const topic = await Topic.findOne({ slug: topicSlug })
     .populate('chapter_id', 'title slug display_order')
-    .populate({
-      path: 'chapter_id',
-      populate: { path: 'book_id', select: 'title slug edition' }
-    });
-  
+    .populate('board_id', 'name slug short_code')
+    .populate('program_id', 'name slug');
+
   if (!topic) return null;
-  
+
   const renderedBlocks = topic.content_blocks?.map(block => renderContentBlock(block)) || [];
-  
+
   return {
     ...topic.toObject(),
     rendered_content_blocks: renderedBlocks
+  };
+};
+
+/**
+ * Get topic by full nested slug path (board/program/subject/chapter/topic)
+ * Fixed: Program model has no 'subject' field — match books by subject_slug separately
+ */
+export const getTopicBySlug = async (boardSlug, programSlug, subjectSlug, chapterSlug, topicSlug) => {
+  // Step 1: find boards matching boardSlug (try short_code first, then slug)
+  const boardIds = await Board.find({
+    $or: [
+      { slug: boardSlug },
+      { short_code: new RegExp(`^${boardSlug}$`, 'i') }
+    ]
+  }).distinct('_id');
+
+  // Step 2: find programs matching programSlug (Program has no subject field)
+  const programIds = await Program.find({ slug: programSlug }).distinct('_id');
+
+  // Step 3: find books matching board + program + subject_slug
+  const bookIds = await Book.find({
+    board_id: { $in: boardIds },
+    program_id: { $in: programIds },
+    subject_slug: subjectSlug
+  }).distinct('_id');
+
+  // Fallback: if no books found with strict filters, try just subject_slug
+  const effectiveBookIds = bookIds.length > 0
+    ? bookIds
+    : await Book.find({ subject_slug: subjectSlug }).distinct('_id');
+
+  const chapter = await Chapter.findOne({
+    slug: chapterSlug,
+    book_id: { $in: effectiveBookIds }
+  });
+
+  if (!chapter) return null;
+
+  const topic = await Topic.findOne({
+    slug: topicSlug,
+    chapter_id: chapter._id
+  })
+    .populate('chapter_id', 'title slug display_order')
+    .populate('board_id', 'name slug short_code')
+    .populate('program_id', 'name slug');
+
+  if (!topic) return null;
+
+  const renderedBlocks = topic.content_blocks?.map(block => renderContentBlock(block)) || [];
+
+  return {
+    ...topic.toObject(),
+    rendered_content_blocks: renderedBlocks,
+    chapter: chapter.toObject ? chapter.toObject() : chapter
   };
 };
 
@@ -193,6 +232,7 @@ export const searchTopics = async (query, limit = 20) => {
 export default {
   getTopicById,
   getTopicBySlug,
+  getTopicBySingleSlug,
   getAdjacentTopics,
   createTopic,
   updateTopic,

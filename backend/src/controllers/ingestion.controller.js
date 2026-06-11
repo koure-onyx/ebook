@@ -15,7 +15,7 @@ export async function ingestBook(req, res, next) {
       });
     }
 
-    const book = await ingestionService.ingestBook(req.body);
+    const book = await ingestionService.ingestBook(req.body, req.user?._id);
     res.status(201).json(success(book, 'Book ingested successfully'));
   } catch (err) {
     next(err);

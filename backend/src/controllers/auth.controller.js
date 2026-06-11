@@ -109,6 +109,8 @@ export async function completeOnboarding(req, res, next) {
       user._id,
       {
         $set: {
+          board: board, // Legacy field
+          grade: grade, // Legacy field
           'student_profile.board': board,
           'student_profile.grade': grade,
           'student_profile.class': className,
@@ -141,30 +143,44 @@ export async function devLogin(req, res, next) {
     }
 
     const { email = 'dev@studyvault.pk', name = 'Dev User' } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
 
-    let user = await User.findOne({ email: email.toLowerCase() });
-    const isEmailAdmin = email.toLowerCase().includes('admin');
-    console.log(`[AUTH] devLogin for ${email}, isEmailAdmin: ${isEmailAdmin}`);
+    let user = await User.findOne({ email: normalizedEmail });
+    // Check if email contains 'admin' or matches the hardcoded admin email
+    const isEmailAdmin = normalizedEmail.includes('admin') || normalizedEmail === ADMIN_USER.email.toLowerCase();
+    
+    console.log(`[AUTH] devLogin for ${normalizedEmail}, isEmailAdmin: ${isEmailAdmin}`);
 
     if (!user) {
-      console.log(`[AUTH] Creating new dev user for ${email} with role ${isEmailAdmin ? 'admin' : 'student'}`);
+      console.log(`[AUTH] Creating new dev user for ${normalizedEmail} with role ${isEmailAdmin ? 'admin' : 'student'}`);
       user = await User.create({
         name,
-        email: email.toLowerCase(),
-        google_id: 'dev-' + email.split('@')[0],
+        email: normalizedEmail,
+        google_id: 'dev-' + normalizedEmail.split('@')[0],
         is_verified: true,
         role: isEmailAdmin ? 'admin' : 'student',
         student_profile: { onboarding_completed: false },
       });
     } else if (isEmailAdmin && user.role !== 'admin') {
-      console.log(`[AUTH] Upgrading existing user ${email} to admin`);
+      console.log(`[AUTH] Upgrading existing user ${normalizedEmail} to admin`);
       user.role = 'admin';
       await user.save();
     }
 
     const tokens = authService.generateTokenPair(user);
-    res.json(success({ user: { id: user._id, name: user.name, email: user.email, role: user.role }, tokens }, 'Dev login OK'));
+    console.log(`[AUTH] Dev login successful for ${normalizedEmail}. Role: ${user.role}`);
+    
+    res.json(success({ 
+      user: { 
+        id: user._id, 
+        name: user.name, 
+        email: user.email, 
+        role: user.role 
+      }, 
+      tokens 
+    }, 'Dev login OK'));
   } catch (err) {
+    console.error(`[AUTH] devLogin error:`, err);
     next(err);
   }
 }

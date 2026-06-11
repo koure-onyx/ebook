@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { Book } from '../models/Book.js';
 import { Chapter } from '../models/Chapter.js';
 import { Topic } from '../models/Topic.js';
@@ -141,11 +142,11 @@ function sanitizeBookForPublic(book) {
 export async function getBooksForUser(user = null, additionalFilters = {}) {
   let filter = {};
 
-  if (user) {
+  if (user && user.role !== 'admin') {
     // Authenticated user - apply personalized filtering
     const profile = await resolveUserContentProfile(user);
     filter = buildBookFilter(profile);
-  } else {
+  } else if (!user) {
     // Unauthenticated - show only public, current edition books
     filter = {
       is_current_edition: { $ne: false },
@@ -175,15 +176,15 @@ export async function getBooksForUser(user = null, additionalFilters = {}) {
         'chapters.raw_text': 0
       }
     },
-    { $sort: { title: 1 } }
+    { $sort: { is_current_edition: -1, is_live: -1, edition_year: -1, title: 1 } }
   ]);
 
   // Manually populate board_id and program_id since aggregate doesn't do it automatically like populate()
   const populatedBooks = await Promise.all(books.map(async (book) => {
-    if (book.board_id) {
+    if (book.board_id && mongoose.Types.ObjectId.isValid(book.board_id)) {
       book.board_id = await Board.findById(book.board_id).select('name short_code').lean();
     }
-    if (book.program_id) {
+    if (book.program_id && mongoose.Types.ObjectId.isValid(book.program_id)) {
       book.program_id = await Program.findById(book.program_id).select('name slug').lean();
     }
     return book;
