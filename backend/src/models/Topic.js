@@ -189,7 +189,7 @@ const TopicSchema = new mongoose.Schema({
   guest_preview_percent: { type: Number, default: 50 },
   workflow_status: {
     type: String,
-    enum: ['draft','pending_review','approved','rejected','live'],
+    enum: ['draft','pending_review','approved','rejected','live','published'],
     default: 'draft',
   },
   admin_notes: String,
