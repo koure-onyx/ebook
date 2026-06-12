@@ -7,21 +7,25 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
+// Recreate __filename and __dirname for ES Module scope
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Load environment
+// Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/studyvault';
 
-// Import models using CommonJS
-import Board from '../src/models/Board.js';
-import Program from '../src/models/Program.js';
-const Book = require('../src/models/Book.js');
-const Chapter = require('../src/models/Chapter.js');
-const Topic = require('../src/models/Topic.js');
-const QuranVerse = require('../src/models/QuranVerse.js');
+// Import all models uniformly using ES Module syntax
+import { Board } from '../src/models/Board.js';
+import { Program } from '../src/models/Program.js';
+import { Book } from '../src/models/Book.js';
+import { Chapter } from '../src/models/Chapter.js';
+import { Topic } from '../src/models/Topic.js';
+import QuranVerse from '../src/models/QuranVerse.js';
 
 async function assembleQuranBook() {
   console.log('◇ Connecting to MongoDB...');
@@ -52,16 +56,16 @@ async function assembleQuranBook() {
 
   // Create Quran book
   const quranBook = await Book.findOneAndUpdate(
-    { 
+    {
       title: 'The Holy Quran',
-      grade: 'All',
+      grade: '9',
       subject_slug: 'the-holy-quran'
     },
     {
       title: 'The Holy Quran',
       subject: 'Tarjuma-tul-Quran',
       subject_slug: 'the-holy-quran',
-      grade: 'All',
+      grade: '9',
       edition_year: 2024,
       publisher: 'Punjab Curriculum and Textbook Board',
       authors: ['Allah (SWT)'],
@@ -82,8 +86,9 @@ async function assembleQuranBook() {
   console.log('✓ Created/Updated Quran book:', quranBook.title);
 
   // Create introduction chapter
+  // FIX: Changed 'book' to 'book_id' in filter to match schema
   const introChapter = await Chapter.findOneAndUpdate(
-    { 
+    {
       book_id: quranBook._id,
       chapter_number: 0
     },
@@ -109,10 +114,10 @@ async function assembleQuranBook() {
 
   // Create topics for each Surah
   const allVerses = await QuranVerse.find().sort({ surah: 1, ayah: 1 });
-  
+
   for (let surahNum = 1; surahNum <= 114; surahNum++) {
     const surahVerses = allVerses.filter(v => v.surah === surahNum);
-    
+
     if (surahVerses.length === 0) {
       console.log(`  ⚠ No verses found for Surah ${surahNum}`);
       continue;
@@ -122,6 +127,7 @@ async function assembleQuranBook() {
     const lastVerse = surahVerses[surahVerses.length - 1];
 
     // Create chapter for Surah
+    // FIX: Ensured filter uses 'book_id'
     const surahChapter = await Chapter.findOneAndUpdate(
       {
         book_id: quranBook._id,
@@ -144,8 +150,10 @@ async function assembleQuranBook() {
 
     // Create topic with all verses as content blocks
     const contentBlocks = surahVerses.map((verse, idx) => ({
-      type: 'html', // Changed from 'quran_verse' to 'html' for native rendering
-      content: verse.text_urdu_translation, // Fallback text field for data normalization
+      // FIX: Changed type from 'quran_verse' to 'html' so frontend renders it
+      type: 'html',
+      // FIX: Added 'content' field for fallback text rendering
+      content: verse.text_urdu_translation,
       html: `<div class='quran-verse' data-surah='${verse.surah}' data-ayah='${verse.ayah}' style='text-align: right; direction: rtl; margin-bottom: 1.5rem;'>
                <p class='arabic-text' style='font-size: 1.75rem; margin-bottom: 0.5rem;'>${verse.text_arabic || ''}</p>
                <p class='urdu-translation' style='font-size: 1.1rem; color: #4b5563;'>${verse.text_urdu_translation}</p>
@@ -155,9 +163,10 @@ async function assembleQuranBook() {
 
     const rawText = surahVerses.map(v => v.text_urdu_translation).join('\n\n');
 
+    // FIX: Ensured filter uses 'chapter' (which is correct for Topic schema)
     const topic = await Topic.findOneAndUpdate(
       {
-        chapter: surahChapter._id,
+        chapter_id: surahChapter._id,
         slug: `surah-${surahNum}-ayah-1-${surahVerses.length}`
       },
       {
@@ -170,7 +179,7 @@ async function assembleQuranBook() {
         estimated_read_time: Math.ceil(surahVerses.length / 10),
         edition_year: 2024,
         chapter: surahChapter._id,
-        book: quranBook._id,
+        book_id: quranBook._id, // FIX: Use book_id for consistency
         raw_text: rawText,
         clean_html: contentBlocks.map(b => b.html).join('\n'),
         content_blocks: contentBlocks,
@@ -179,8 +188,7 @@ async function assembleQuranBook() {
         book_mcqs: [],
         book_short_questions: [],
         book_problems: [],
-        keywords: [firstVerse.surah_name_english.toLowerCase(), 'quran', 'surah'],
-        quran_reference: {
+        keywords: [(firstVerse.surah_name_english || 'surah-' + surahNum).toLowerCase(), 'quran', 'surah'], quran_reference: {
           surah: surahNum,
           ayah: surahVerses.length,
           surah_name_arabic: firstVerse.surah_name_arabic,
@@ -189,8 +197,8 @@ async function assembleQuranBook() {
           manzil: firstVerse.manzil || 1,
           ruku: firstVerse.ruku || 1
         },
-        quran_word_alignments: surahVerses.flatMap(v => 
-          v.words.map(w => ({
+        quran_word_alignments: surahVerses.flatMap(v =>
+          (v.words || []).map(w => ({
             position: w.position,
             textbook_urdu_meaning: w.text_urdu,
             color_highlight: null,

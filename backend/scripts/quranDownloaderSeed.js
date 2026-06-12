@@ -3,13 +3,16 @@
  * Downloads all 6,236 verses from Alquran.cloud API
  * Saves to MongoDB with Uthmani text, Urdu translation, and word breakdown
  */
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-const path = require('path');
-const httpx = require('httpx');
+// Recreate __filename and __dirname for ES Module scope
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// Load environment
+// Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -46,49 +49,48 @@ async function downloadQuranData() {
   console.log('✓ MongoDB connected successfully');
 
   console.log('\nFetching Quran Uthmani data from Alquran.cloud...');
-  
+
   let totalVerses = 0;
   let totalWords = 0;
 
   // Fetch all 114 Surahs
   for (let surahNum = 1; surahNum <= 114; surahNum++) {
     try {
-      // Get Surah metadata
-      const surahRes = await httpx.get(`http://api.alquran.cloud/v1/surah/${surahNum}`);
-      const surahData = surahRes.json();
-      
+      // 1. Get Surah metadata
+      const surahRes = await fetch(`http://api.alquran.cloud/v1/surah/${surahNum}`);
+      const surahData = await surahRes.json();
+
       const surahNameArabic = surahData.data.name;
       const surahNameEnglish = surahData.data.englishName;
-      const revelationType = surahData.data.revelationType;
 
       console.log(`Processing Surah ${surahNum}: ${surahNameEnglish} (${surahData.data.numberOfAyahs} verses)`);
 
-      // Get Uthmani text
-      const uthmaniRes = await httpx.get(`http://api.alquran.cloud/v1/surah/${surahNum}/ar.uthmani`);
-      const uthmaniData = uthmaniRes.json();
+      // 2. Get Uthmani text
+      const uthmaniRes = await fetch(`http://api.alquran.cloud/v1/surah/${surahNum}/ar.uthmani`);
+      const uthmaniData = await uthmaniRes.json();
 
-      // Get Urdu translation
-      const urduRes = await httpx.get(`http://api.alquran.cloud/v1/surah/${surahNum}/ur.jalandhry`);
-      const urduData = urduRes.json();
+      // 3. Get Urdu translation
+      const urduRes = await fetch(`http://api.alquran.cloud/v1/surah/${surahNum}/ur.jalandhry`);
+      const urduData = await urduRes.json();
 
-      // Get word-by-word
-      const wordsRes = await httpx.get(`http://api.alquran.cloud/v1/surah/${surahNum}/wordbyword`);
-      const wordsData = wordsRes.json();
+      // 4. Get word-by-word data
+      const wordsRes = await fetch(`http://api.alquran.cloud/v1/surah/${surahNum}/wordbyword`);
+      const wordsData = await wordsRes.json();
 
-      // Process each verse
+      // Process each verse safely
       for (let ayahIdx = 0; ayahIdx < uthmaniData.data.ayahs.length; ayahIdx++) {
         const uthmaniAyah = uthmaniData.data.ayahs[ayahIdx];
         const urduAyah = urduData.data.ayahs[ayahIdx];
-        const wordsAyah = wordsData.data.ayahs[ayahIdx];
+        const wordsAyah = wordsData.data.ayahs?.[ayahIdx];
 
         const ayahNumber = uthmaniAyah.numberInSurah;
-        
-        // Extract words
-        const words = wordsAyah.words.map((word, idx) => ({
+
+        // Extract words safely (fallback to empty array if specific data structure changes)
+        const words = (wordsAyah?.words || []).map((word, idx) => ({
           position: idx + 1,
-          text_uthmani: word.text,
-          text_urdu: word.translation?.text || '',
-          transliteration: word.audio?.secondaryAudio?.[0] || ''
+          text_uthmani: word.text || word.word_arabic || '',
+          text_urdu: word.translation?.text || word.word_urdu || '',
+          transliteration: word.audio?.secondaryAudio?.[0] || word.transliteration || ''
         }));
 
         // Create verse document
@@ -98,7 +100,7 @@ async function downloadQuranData() {
           surah_name_arabic: surahNameArabic,
           surah_name_english: surahNameEnglish,
           text_uthmani: uthmaniAyah.text.replace('۝', '').trim(),
-          text_urdu_translation: urduAyah.text,
+          text_urdu_translation: urduAyah?.text || '',
           juz: uthmaniAyah.juz,
           manzil: uthmaniAyah.manzil,
           ruku: uthmaniAyah.ruku,
@@ -106,7 +108,7 @@ async function downloadQuranData() {
           words: words
         };
 
-        // Upsert verse
+        // Upsert verse to keep script idempotent
         await QuranVerse.updateOne(
           { surah: surahNum, ayah: ayahNumber },
           { $set: verseDoc },
@@ -117,7 +119,7 @@ async function downloadQuranData() {
         totalWords += words.length;
       }
 
-      console.log(`  ✓ Surah ${surahNum}: ${uthmaniData.data.ayahs.length} verses, ${totalWords} words processed`);
+      console.log(`  ✓ Surah ${surahNum}: ${uthmaniData.data.ayahs.length} verses processed successfully.`);
 
     } catch (error) {
       console.error(`  ✗ Error processing Surah ${surahNum}:`, error.message);

@@ -27,7 +27,7 @@ async function emergencyBackfill() {
 
     if (chaptersWithoutSlugs.length > 0) {
       console.log(`[BACKFILL] Found ${chaptersWithoutSlugs.length} legacy chapters missing slug fields. Backfilling...`);
-      
+
       let updatedCount = 0;
       let failedCount = 0;
 
@@ -35,7 +35,7 @@ async function emergencyBackfill() {
         try {
           // Locate the parent book entry to pull its slug and subject_slug
           const parentBook = await Book.findById(ch.book_id).select('slug subject_slug').lean();
-          
+
           if (parentBook && parentBook.slug) {
             ch.book_slug = parentBook.slug;
             ch.subject_slug = parentBook.subject_slug || parentBook.slug;
@@ -44,6 +44,7 @@ async function emergencyBackfill() {
           } else {
             console.warn(`[BACKFILL] Could not find parent book for chapter ${ch._id}`);
             failedCount++;
+            continue;
           }
         } catch (err) {
           console.error(`[BACKFILL] Error updating chapter ${ch._id}:`, err.message);
@@ -77,7 +78,7 @@ async function backfillTopicSlugs() {
 
     if (topicsWithoutSlugs.length > 0) {
       console.log(`[TOPIC BACKFILL] Found ${topicsWithoutSlugs.length} legacy topics missing slug fields. Backfilling...`);
-      
+
       let updatedCount = 0;
       let failedCount = 0;
 
@@ -85,7 +86,7 @@ async function backfillTopicSlugs() {
         try {
           // Generate slug from topic title
           const generatedSlug = generateSlug(topic.title);
-          
+
           if (generatedSlug) {
             topic.slug = generatedSlug;
             await topic.save();

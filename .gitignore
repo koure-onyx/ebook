@@ -6,6 +6,10 @@ node_modules/
 *.tmp
 *.swp
 
+# Next.js build and dev cache
+.next/
+out/
+
 # Environment
 .env
 .env.local
