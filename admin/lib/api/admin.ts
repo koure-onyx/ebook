@@ -150,7 +150,8 @@ export async function updateBook(id: string, updateData: Partial<Book>) {
 }
 
 export async function deleteBook(id: string) {
-  return api.delete<void>(`/books/${id}`);
+  const response = await api.delete(`/books/${id}`);
+  return response;
 }
 
 // Topics API

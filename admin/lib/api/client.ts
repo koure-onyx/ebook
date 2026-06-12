@@ -82,7 +82,9 @@ async function request<T>(
     );
   }
 
-  return data.data as T;
+  // Backend returns { success: true, message: '...', data: ... }
+  // Return the entire response for flexibility
+  return data as unknown as T;
 }
 
 /**
