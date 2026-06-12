@@ -121,6 +121,15 @@ export default function TopicLevelReader({
   const [isAIExplainOpen, setIsAIExplainOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // ROOT-LEVEL NULL GUARD: Prevent crash if topic is undefined during SSR/hydration
+  if (!topic) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-slate-50">
+        <div className="text-sm text-slate-500 animate-pulse">Loading reader workspace...</div>
+      </div>
+    );
+  }
+
   const opts = boardSlug || programSlug || grade ? { boardSlug, programSlug, grade } : undefined;
   const isHotTopic = topic.exam_frequency?.some((ef: any) => ef.is_hot_topic || (ef as any).exam_frequency_count > 2);
   const isMastered = userProgress?.quiz_score !== undefined && userProgress.quiz_score >= 80;

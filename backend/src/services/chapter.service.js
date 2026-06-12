@@ -133,6 +133,8 @@ export const getChapterTopics = async (chapterId) => {
       { chapter_id: chapterId.toString() }
     ]
   })
+  .populate('book_id')
+  .populate('chapter_id')
   .sort({ display_order: 1 })
   .select('-__v')
   .lean();
