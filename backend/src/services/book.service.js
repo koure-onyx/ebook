@@ -156,28 +156,20 @@ export async function getBooksForUser(user = null, additionalFilters = {}) {
   }
 
   // Extract special operators that need aggregation handling
-  const { $expr, grade, ...restFilters } = additionalFilters;
+  const { grade, ...restFilters } = additionalFilters;
   
   // Merge regular filters
   filter = { ...filter, ...restFilters };
   
-  // Handle grade with $in operator specially
+  // Handle grade with $in operator - MongoDB $in works directly in match stage
   if (grade?.$in) {
     filter.grade = grade.$in;
   } else if (grade) {
     filter.grade = grade;
   }
 
-  // Build aggregation pipeline
-  const pipeline = [{ $match: filter }];
-  
-  // Add $expr match if present (for regex matching on grade)
-  if ($expr) {
-    pipeline.push({ $match: $expr });
-  }
-  
-  // Continue with lookups
-  pipeline.push(
+  const books = await Book.aggregate([
+    { $match: filter },
     { $lookup: { from: 'chapters', localField: '_id', foreignField: 'book_id', as: 'chapters' } },
     { $lookup: { from: 'topics', localField: '_id', foreignField: 'book_id', as: 'topics' } },
     {
@@ -194,9 +186,7 @@ export async function getBooksForUser(user = null, additionalFilters = {}) {
       }
     },
     { $sort: { is_current_edition: -1, is_live: -1, edition_year: -1, title: 1 } }
-  );
-
-  const books = await Book.aggregate(pipeline);
+  ]);
 
   // Manually populate board_id and program_id since aggregate doesn't do it automatically like populate()
   const populatedBooks = await Promise.all(books.map(async (book) => {

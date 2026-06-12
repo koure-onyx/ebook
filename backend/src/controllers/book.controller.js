@@ -79,20 +79,10 @@ export async function getBooks(req, res, next) {
         gradeValues.push(`grade ${numericGrade}`);
       }
       
-      // Use regex for flexible matching in aggregation
+      // Use $in for flexible matching - will be handled specially in service layer
       additionalFilters.grade = {
         $in: gradeValues
       };
-      // Also add a regex pattern for more flexible matching
-      if (!isNaN(numericGrade)) {
-        additionalFilters.$expr = {
-          $regexMatch: {
-            input: { $toString: '$grade' },
-            regex: `\\b${numericGrade}\\b`,
-            options: 'i'
-          }
-        };
-      }
     }
 
     let books = await bookService.getBooksForUser(user, additionalFilters);
@@ -101,7 +91,6 @@ export async function getBooks(req, res, next) {
     if (books.length === 0 && additionalFilters.board_id && subject && grade) {
       const fallbackFilters = { ...additionalFilters };
       delete fallbackFilters.grade;
-      delete fallbackFilters.$expr;
       const fallbackBooks = await bookService.getBooksForUser(user, fallbackFilters);
       if (fallbackBooks.length > 0) {
         books = fallbackBooks;
