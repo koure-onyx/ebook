@@ -61,8 +61,11 @@ function compareBooks(a: any, b: any) {
 
 async function findBookByBoardGradeSubject(boardCode: string, grade: string, subjectSlug: string, token: string | null) {
   try {
+    console.log('[STUDENT BOOK FETCH DEBUG] Looking for book with:', { boardCode, grade, subjectSlug, token: !!token });
     const books = await getBooksServer(token, { grade, subject: subjectSlug });
+    console.log('[STUDENT BOOK FETCH DEBUG] Raw books response:', JSON.stringify(books));
     const bookArray = Array.isArray(books) ? books : (books?.books || []);
+    console.log('[STUDENT BOOK FETCH DEBUG] Extracted bookArray:', bookArray.length, 'books');
     const normalizedBoardCode = normalizeSegment(boardCode);
     const normalizedGrade = normalizeSegment(grade);
     const allowAnyGrade = isAllGrade(grade);
@@ -70,10 +73,17 @@ async function findBookByBoardGradeSubject(boardCode: string, grade: string, sub
     for (const book of bookArray) {
       const bookBoardCode = normalizeSegment(book.board_id?.short_code || book.board_id?.slug || book.board_short_code || '');
       const bookGrade = normalizeSegment(book.grade);
+      console.log('[STUDENT BOOK FETCH DEBUG] Checking book:', { 
+        title: book.title, 
+        boardCode: bookBoardCode, 
+        grade: book.grade,
+        matches: bookBoardCode === normalizedBoardCode 
+      });
       if (
         bookBoardCode === normalizedBoardCode &&
         (allowAnyGrade || gradesMatch(bookGrade, normalizedGrade) || gradesMatch(book.metadata?.grade_level, normalizedGrade))
       ) {
+        console.log('[STUDENT BOOK FETCH DEBUG] Found matching book:', book.title);
         return book;
       }
     }
@@ -97,8 +107,9 @@ async function findBookByBoardGradeSubject(boardCode: string, grade: string, sub
       return fallbackPool[0];
     }
   } catch (error) {
-    console.error('Error finding book:', error);
+    console.error('[STUDENT BOOK FETCH DEBUG] Error finding book:', error);
   }
+  console.log('[STUDENT BOOK FETCH DEBUG] No book found');
   return null;
 }
 

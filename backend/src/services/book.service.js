@@ -175,6 +175,8 @@ export async function getBooksForUser(user = null, additionalFilters = {}) {
     filter.grade = grade;
   }
 
+  console.log('[BOOK SERVICE] Query filter:', JSON.stringify(filter));
+
   const books = await Book.aggregate([
     { $match: filter },
     { $lookup: { from: 'chapters', localField: '_id', foreignField: 'book_id', as: 'chapters' } },
@@ -195,16 +197,20 @@ export async function getBooksForUser(user = null, additionalFilters = {}) {
     { $sort: { is_current_edition: -1, is_live: -1, edition_year: -1, title: 1 } }
   ]);
 
+  console.log(`[BOOK SERVICE] Found ${books.length} books`);
+
   // Manually populate board_id and program_id since aggregate doesn't do it automatically like populate()
   const populatedBooks = await Promise.all(books.map(async (book) => {
     if (book.board_id && mongoose.Types.ObjectId.isValid(book.board_id)) {
-      book.board_id = await Board.findById(book.board_id).select('name short_code').lean();
+      book.board_id = await Board.findById(book.board_id).select('name short_code slug').lean();
     }
     if (book.program_id && mongoose.Types.ObjectId.isValid(book.program_id)) {
       book.program_id = await Program.findById(book.program_id).select('name slug').lean();
     }
     return book;
   }));
+
+  console.log('[BOOK SERVICE] Populated books sample:', JSON.stringify(populatedBooks[0]?.board_id));
 
   // Sanitize for unauthenticated users
   if (!user) {
