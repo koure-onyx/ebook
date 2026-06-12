@@ -461,18 +461,32 @@ export async function getBookChapters(bookId) {
     queryCriteria.book_id = bookId;
   }
   
-  // Step 1: Try standard lookup by book_id
+  // Step 1: Try standard lookup by book_id (no populate since topics field may not exist in schema)
   let chapters = await Chapter.find(queryCriteria)
-    .populate('topics')
+    .setOptions({ strictPopulate: false })
     .sort({ chapter_number: 1 });
   
   console.log(`[CHAPTER SERVICE] Direct lookup found ${chapters.length} chapters`);
   
+  // Ensure topics array exists on each chapter
+  chapters = chapters.map(ch => {
+    const chapterObj = ch.toObject ? ch.toObject() : ch;
+    if (!chapterObj.topics) chapterObj.topics = [];
+    return chapterObj;
+  });
+  
   // Step 2: Fallback - try matching by book_slug string
   if (!chapters || chapters.length === 0) {
     chapters = await Chapter.find({ book_slug: bookId })
-      .populate('topics')
+      .setOptions({ strictPopulate: false })
       .sort({ chapter_number: 1 });
+    
+    // Ensure topics array exists
+    chapters = chapters.map(ch => {
+      const chapterObj = ch.toObject ? ch.toObject() : ch;
+      if (!chapterObj.topics) chapterObj.topics = [];
+      return chapterObj;
+    });
     
     console.log(`[CHAPTER SERVICE] book_slug fallback found ${chapters.length} chapters`);
   }
@@ -496,8 +510,15 @@ export async function getBookChapters(bookId) {
       };
       
       chapters = await Chapter.find(fallbackQuery)
-        .populate('topics')
+        .setOptions({ strictPopulate: false })
         .sort({ chapter_number: 1 });
+      
+      // Ensure topics array exists
+      chapters = chapters.map(ch => {
+        const chapterObj = ch.toObject ? ch.toObject() : ch;
+        if (!chapterObj.topics) chapterObj.topics = [];
+        return chapterObj;
+      });
       
       console.log(`[CHAPTER SERVICE] Subject-based fallback found ${chapters.length} chapters`);
     }
