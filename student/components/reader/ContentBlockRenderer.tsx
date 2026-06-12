@@ -1,11 +1,46 @@
+"use client";
+
 import React, { useEffect, useState } from 'react';
 import { Beaker, Lightbulb, Info, CheckCircle, AlertCircle, BookOpen } from 'lucide-react';
 import QuranVerseRenderer from '@/components/QuranVerseRenderer';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 
+/**
+ * Data Normalization Layer - Handles schema variance in content blocks
+ * Checks sequentially for content, body, value, text, html properties
+ */
+function normalizeBlockContent(block: any): string {
+  if (!block) return '';
+  
+  // If block is already a string, return it
+  if (typeof block === 'string') return block;
+  
+  // Check common content properties in order of priority
+  const contentFields = ['content', 'body', 'value', 'text', 'html', 'markdown'];
+  for (const field of contentFields) {
+    if (block[field] !== undefined && block[field] !== null) {
+      if (typeof block[field] === 'string') return block[field];
+      if (typeof block[field] === 'object' && block[field].text) return block[field].text;
+    }
+  }
+  
+  // Fallback: try to stringify if it's an object
+  if (typeof block === 'object') {
+    try {
+      return JSON.stringify(block);
+    } catch {
+      return '';
+    }
+  }
+  
+  return '';
+}
 
 function blockHtmlText(block: any): string {
+  const normalized = normalizeBlockContent(block);
+  if (normalized) return normalized;
+  
   const raw = block?.html ?? block?.text ?? '';
   return typeof raw === 'string' ? raw : String(raw);
 }
@@ -20,10 +55,10 @@ const MCQTemplate: React.FC<{ block: any }> = ({ block }) => {
     setIsMounted(true);
   }, []);
 
-  const questionText = block.question || block.text || '';
+  const questionText = normalizeBlockContent(block.question || block.text || '');
   const options = block.options || [];
   const correctAnswer = block.correct_answer || block.correctAnswer || null;
-  const explanation = block.explanation || '';
+  const explanation = normalizeBlockContent(block.explanation || '');
 
   return (
     <div className="my-8 bg-[#FAEEDA] border-[0.5px] border-[#BA7517] rounded-xl p-6 shadow-sm">
@@ -86,9 +121,9 @@ const MCQTemplate: React.FC<{ block: any }> = ({ block }) => {
  * QuestionTemplate Component - Renders Short Answer Questions from content blocks
  */
 const QuestionTemplate: React.FC<{ block: any }> = ({ block }) => {
-  const questionText = block.question || block.text || '';
+  const questionText = normalizeBlockContent(block.question || block.text || '');
   const marks = block.marks || null;
-  const answer = block.answer || '';
+  const answer = normalizeBlockContent(block.answer || '');
   const difficulty = block.difficulty || null;
 
   return (
@@ -142,10 +177,10 @@ const QuestionTemplate: React.FC<{ block: any }> = ({ block }) => {
  * ProblemTemplate Component - Renders Numerical/Long Problems from content blocks
  */
 const ProblemTemplate: React.FC<{ block: any }> = ({ block }) => {
-  const problemText = block.problem || block.text || block.question || '';
-  const givenData = block.given || null;
-  const solution = block.solution || '';
-  const finalAnswer = block.final_answer || block.answer || '';
+  const problemText = normalizeBlockContent(block.problem || block.text || block.question || '');
+  const givenData = block.given ? normalizeBlockContent(block.given) : null;
+  const solution = normalizeBlockContent(block.solution || '');
+  const finalAnswer = normalizeBlockContent(block.final_answer || block.answer || '');
   const marks = block.marks || null;
 
   return (
@@ -208,7 +243,7 @@ const ProblemTemplate: React.FC<{ block: any }> = ({ block }) => {
  * SummaryPointTemplate Component - Renders Summary Points from content blocks
  */
 const SummaryPointTemplate: React.FC<{ block: any }> = ({ block }) => {
-  const summaryText = block.text || block.summary || block.content || '';
+  const summaryText = normalizeBlockContent(block.text || block.summary || block.content || '');
   const icon = block.icon || 'bullet';
 
   return (
@@ -248,30 +283,38 @@ function renderMathContent(content: string, isInline: boolean = true): JSX.Eleme
 }
 
 function BlockRenderer({ block, index, topicId }: { block: any; index: number; topicId?: string }) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   if (!block) return null;
 
   // Handle math blocks (KaTeX)
   if (block.type === 'math' || block.type === 'math_block') {
+    const mathContent = normalizeBlockContent(block.content || block.text || block.html);
     return (
       <div key={index} className="my-6 p-4 bg-gray-50 rounded-lg border-l-[3px] border-indigo-500">
         <div className="text-sm text-gray-700">
-          {renderMathContent(block.content || block.text || block.html, false)}
+          {renderMathContent(mathContent, false)}
         </div>
       </div>
     );
   }
 
   if (block.type === 'math_inline') {
+    const mathContent = normalizeBlockContent(block.content || block.text || block.html);
     return (
       <span key={index} className="inline-block px-1">
-        {renderMathContent(block.content || block.text || block.html, true)}
+        {renderMathContent(mathContent, true)}
       </span>
     );
   }
 
 
 
-  const htmlText = blockHtmlText(block);
+  const htmlText = isMounted ? blockHtmlText(block) : '';
   const text = typeof block.text === 'string' ? block.text : blockHtmlText(block);
 
   // Custom wrappers for specific element types according to spec

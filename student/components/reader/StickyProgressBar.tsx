@@ -10,6 +10,9 @@ interface StickyProgressBarProps {
   totalTopics: number;
   readTopics: number;
   lastReadTopicSlug?: string;
+  currentTopic?: { title?: string; chapter_id?: { chapter_number?: number } };
+  nextTopic?: { slug?: string; title?: string };
+  prevTopic?: { slug?: string; title?: string };
 }
 
 export function StickyProgressBar({
@@ -17,6 +20,9 @@ export function StickyProgressBar({
   totalTopics,
   readTopics,
   lastReadTopicSlug,
+  currentTopic,
+  nextTopic,
+  prevTopic,
 }: StickyProgressBarProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const { scrollY } = useScroll();
@@ -73,6 +79,57 @@ export function StickyProgressBar({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Bottom Navigation Bar - Fixed to viewport floor with mobile optimization */}
+      {(prevTopic || nextTopic || currentTopic) && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 backdrop-blur-md px-4 py-3 shadow-lg md:left-64">
+          <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
+            
+            {/* Previous Button */}
+            {prevTopic ? (
+              <Link
+                href={prevTopic.slug || "#"}
+                className="flex items-center gap-1 px-3 py-2 text-xs font-medium text-slate-600 hover:text-emerald-700 active:scale-95 transition-transform disabled:opacity-50 disabled:pointer-events-none"
+              >
+                <span>←</span>
+                <span className="hidden sm:inline">Prev</span>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-1 px-3 py-2 text-xs font-medium text-slate-300">
+                <span>←</span>
+                <span className="hidden sm:inline">Prev</span>
+              </div>
+            )}
+
+            {/* Center Topic Info with Text Truncation */}
+            <div className="min-w-0 flex-1 text-center">
+              <p className="truncate text-xs font-semibold text-slate-800 sm:text-sm">
+                {currentTopic?.title || "Topic"}
+              </p>
+              <p className="hidden text-[10px] text-slate-400 sm:block">
+                Chapter {currentTopic?.chapter_id?.chapter_number || "?"}
+              </p>
+            </div>
+
+            {/* Next Button */}
+            {nextTopic ? (
+              <Link
+                href={nextTopic.slug || "#"}
+                className="flex items-center gap-1 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-medium text-white shadow-sm hover:bg-emerald-700 active:scale-95 transition-transform disabled:opacity-50 disabled:pointer-events-none"
+              >
+                <span className="hidden sm:inline">Next Topic</span>
+                <span>→</span>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-1 rounded-lg bg-slate-200 px-4 py-2 text-xs font-medium text-slate-400">
+                <span className="hidden sm:inline">Next Topic</span>
+                <span>→</span>
+              </div>
+            )}
+            
+          </div>
+        </div>
+      )}
     </>
   );
 }
