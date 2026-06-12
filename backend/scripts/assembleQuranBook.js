@@ -44,7 +44,8 @@ async function assembleQuranBook() {
   if (!program) {
     program = await Program.create({
       name: 'Diniyat (Islamic Studies)',
-      slug: 'diniyat'
+      slug: 'diniyat',
+      program_type: 'religious'
     });
     console.log('✓ Created Diniyat program');
   }
