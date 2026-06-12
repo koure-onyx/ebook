@@ -105,7 +105,22 @@ function resolveProgramSlug(bookMetadata) {
  */
 export async function ingestBook(deepseekJson, adminUserId) {
   const log = [];
-  const { book_metadata, chapter, topics } = deepseekJson;
+  const { book_metadata } = deepseekJson;
+  
+  // FIX: Handle both singular 'chapter' object and plural 'chapters' array formats
+  let rawChaptersArray = [];
+  if (deepseekJson.chapters && Array.isArray(deepseekJson.chapters)) {
+    rawChaptersArray = deepseekJson.chapters;
+    console.log(`[INGESTION DETECTOR] Identified ${rawChaptersArray.length} chapters from 'chapters' array.`);
+  } else if (deepseekJson.chapter && typeof deepseekJson.chapter === 'object') {
+    // Convert singular document layout block into an iterable array wrapper
+    rawChaptersArray = [deepseekJson.chapter];
+    console.log(`[INGESTION DETECTOR] Identified 1 chapter from singular 'chapter' object.`);
+  } else {
+    console.warn('[INGESTION WARNING] No chapter data found in ingestion payload.');
+  }
+  
+  const topics = deepseekJson.topics || [];
   const programSlug = resolveProgramSlug(book_metadata);
 
   try {
@@ -242,41 +257,51 @@ export async function ingestBook(deepseekJson, adminUserId) {
       log.push(`✓ Created new book: ${book.title}`);
     }
 
-    // STEP 4: Upsert Chapter
-    let chapterDoc = await Chapter.findOne({
-      book_id: book._id,
-      chapter_number: chapter.chapter_number,
-    });
-
-    if (!chapterDoc) {
-      chapterDoc = new Chapter({
-        title: chapter.title,
-        slug: chapter.slug,
-        chapter_number: chapter.chapter_number,
-        chapter_number_display: chapter.chapter_number_display || `Chapter ${chapter.chapter_number}`,
+    // STEP 4: Upsert Chapters (handle both singular and plural formats)
+    const createdChapters = [];
+    
+    for (const chapter of rawChaptersArray) {
+      let chapterDoc = await Chapter.findOne({
         book_id: book._id,
-        book_slug: String(book.slug).toLowerCase().trim(),  // Store book slug for fallback lookups (normalized to lowercase)
-        subject_slug: String(book.subject_slug).toLowerCase().trim(),  // Store subject slug for fallback lookups (normalized to lowercase)
-        program_id: program._id,
-        board_id: board._id,
-        student_learning_outcomes: chapter.student_learning_outcomes,
-        summary: chapter.chapter_summary,
-        page_start: chapter.page_start,
-        page_end: chapter.page_end,
-        seo: chapter.seo,
-        display_order: chapter.chapter_number,
-        is_live: true,
+        chapter_number: chapter.chapter_number,
       });
-    } else {
-      // Update chapter metadata
-      chapterDoc.title = chapter.title;
-      chapterDoc.book_slug = String(book.slug).toLowerCase().trim();  // Keep book_slug in sync (normalized)
-      chapterDoc.subject_slug = String(book.subject_slug).toLowerCase().trim();  // Keep subject_slug in sync (normalized)
-      chapterDoc.student_learning_outcomes = chapter.student_learning_outcomes;
-      chapterDoc.summary = chapter.chapter_summary;
-      chapterDoc.seo = chapter.seo;
-      chapterDoc.is_live = true;
+
+      if (!chapterDoc) {
+        chapterDoc = new Chapter({
+          title: chapter.title,
+          slug: chapter.slug,
+          chapter_number: chapter.chapter_number,
+          chapter_number_display: chapter.chapter_number_display || `Chapter ${chapter.chapter_number}`,
+          book_id: book._id,
+          book_slug: String(book.slug).toLowerCase().trim(),
+          subject_slug: String(book.subject_slug).toLowerCase().trim(),
+          program_id: program._id,
+          board_id: board._id,
+          student_learning_outcomes: chapter.student_learning_outcomes,
+          summary: chapter.chapter_summary,
+          page_start: chapter.page_start,
+          page_end: chapter.page_end,
+          seo: chapter.seo,
+          display_order: chapter.chapter_number,
+          is_live: true,
+        });
+      } else {
+        // Update chapter metadata
+        chapterDoc.title = chapter.title;
+        chapterDoc.book_slug = String(book.slug).toLowerCase().trim();
+        chapterDoc.subject_slug = String(book.subject_slug).toLowerCase().trim();
+        chapterDoc.student_learning_outcomes = chapter.student_learning_outcomes;
+        chapterDoc.summary = chapter.chapter_summary;
+        chapterDoc.seo = chapter.seo;
+        chapterDoc.is_live = true;
+      }
+
+      await chapterDoc.save();
+      createdChapters.push(chapterDoc);
+      log.push(`✓ ${!chapterDoc.isNew ? 'Updated' : 'Created'} Chapter ${chapter.chapter_number}: ${chapter.title}`);
     }
+    
+    console.log(`[INGESTION SUCCESS] Successfully populated ${createdChapters.length} chapters inside MongoDB.`);
 
     // STEP 5: Upsert Topics with version diff detection
     const topicIds = [];
