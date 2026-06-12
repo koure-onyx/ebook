@@ -144,19 +144,12 @@ async function assembleQuranBook() {
 
     // Create topic with all verses as content blocks
     const contentBlocks = surahVerses.map((verse, idx) => ({
-      type: 'quran_verse',
-      quran_data: {
-        surah: verse.surah,
-        ayah: verse.ayah,
-        textbook_line_translation: verse.text_urdu_translation,
-        word_alignments: verse.words.map(w => ({
-          position: w.position,
-          textbook_urdu: w.text_urdu,
-          color_highlight: null
-        })),
-        tafsir_snippet: ''
-      },
-      html: `<div class='quran-verse' data-surah='${verse.surah}' data-ayah='${verse.ayah}'><p class='urdu-translation'>${verse.text_urdu_translation}</p></div>`,
+      type: 'html', // Changed from 'quran_verse' to 'html' for native rendering
+      content: verse.text_urdu_translation, // Fallback text field for data normalization
+      html: `<div class='quran-verse' data-surah='${verse.surah}' data-ayah='${verse.ayah}' style='text-align: right; direction: rtl; margin-bottom: 1.5rem;'>
+               <p class='arabic-text' style='font-size: 1.75rem; margin-bottom: 0.5rem;'>${verse.text_arabic || ''}</p>
+               <p class='urdu-translation' style='font-size: 1.1rem; color: #4b5563;'>${verse.text_urdu_translation}</p>
+             </div>`,
       block_order: idx + 1
     }));
 
