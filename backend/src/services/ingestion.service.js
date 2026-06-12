@@ -316,10 +316,10 @@ export async function ingestBook(deepseekJson, adminUserId) {
       let previousVersionId = null;
       let versionStatus = 'new';
 
-      if (book.previous_edition_id) {
+      if (book.previous_edition_id && lastProcessedChapter) {
         const prevChapter = await Chapter.findOne({
           book_id: book.previous_edition_id,
-          chapter_number: chapter.chapter_number,
+          chapter_number: lastProcessedChapter.chapter_number,
         });
         if (prevChapter) {
           const prevTopic = await Topic.findOne({
@@ -335,7 +335,7 @@ export async function ingestBook(deepseekJson, adminUserId) {
 
       // Find existing topic in current chapter (for re-ingestion)
       // Use lastProcessedChapter if available, otherwise fallback lookup
-      const currentChapterId = lastProcessedChapter?._id || (await Chapter.findOne({ book_id: book._id, chapter_number: chapter.chapter_number }))?._id;
+      const currentChapterId = lastProcessedChapter?._id || (await Chapter.findOne({ book_id: book._id, chapter_number: lastProcessedChapter?.chapter_number }))?._id;
       
       let topicDoc = await Topic.findOne({
         chapter_id: currentChapterId,
@@ -353,8 +353,8 @@ export async function ingestBook(deepseekJson, adminUserId) {
         program_name: program.name,
         subject_name: book_metadata.subject,
         chapter_id: currentChapterId,
-        chapter_number: chapter.chapter_number,
-        chapter_title: chapter.title,
+        chapter_number: lastProcessedChapter?.chapter_number || 0,
+        chapter_title: lastProcessedChapter?.title || '',
         raw_text: topicData.raw_text,
         clean_html: topicData.clean_html,
         content_blocks: topicData.content_blocks,
@@ -443,7 +443,7 @@ export async function ingestBook(deepseekJson, adminUserId) {
       grade: gradeVal,
       programSlug: program.slug,
       subjectSlug: book.subject_slug,
-      chapterNumber: chapter.chapter_number,
+      chapterNumber: lastProcessedChapter?.chapter_number || 0,
       firstTopicSlug: topics[0]?.slug
     };
 
