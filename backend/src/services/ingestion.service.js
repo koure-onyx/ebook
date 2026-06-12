@@ -259,6 +259,7 @@ export async function ingestBook(deepseekJson, adminUserId) {
 
     // STEP 4: Upsert Chapters (handle both singular and plural formats)
     const createdChapters = [];
+    let lastProcessedChapter = null; // Track the last chapter for topic assignment
     
     for (const chapter of rawChaptersArray) {
       let chapterDoc = await Chapter.findOne({
@@ -298,6 +299,7 @@ export async function ingestBook(deepseekJson, adminUserId) {
 
       await chapterDoc.save();
       createdChapters.push(chapterDoc);
+      lastProcessedChapter = chapterDoc; // Store reference for later use
       log.push(`✓ ${!chapterDoc.isNew ? 'Updated' : 'Created'} Chapter ${chapter.chapter_number}: ${chapter.title}`);
     }
     
@@ -332,8 +334,11 @@ export async function ingestBook(deepseekJson, adminUserId) {
       }
 
       // Find existing topic in current chapter (for re-ingestion)
+      // Use lastProcessedChapter if available, otherwise fallback lookup
+      const currentChapterId = lastProcessedChapter?._id || (await Chapter.findOne({ book_id: book._id, chapter_number: chapter.chapter_number }))?._id;
+      
       let topicDoc = await Topic.findOne({
-        chapter_id: chapterDoc._id || (await Chapter.findOne({ book_id: book._id, chapter_number: chapter.chapter_number }))?._id,
+        chapter_id: currentChapterId,
         slug: topicData.slug,
       });
 
@@ -347,7 +352,7 @@ export async function ingestBook(deepseekJson, adminUserId) {
         board_id: board._id,
         program_name: program.name,
         subject_name: book_metadata.subject,
-        chapter_id: chapterDoc._id,
+        chapter_id: currentChapterId,
         chapter_number: chapter.chapter_number,
         chapter_title: chapter.title,
         raw_text: topicData.raw_text,
@@ -412,9 +417,11 @@ export async function ingestBook(deepseekJson, adminUserId) {
     }
 
     // STEP 6: Update chapter with topic IDs and save
-    chapterDoc.topic_ids = topicIds;
-    chapterDoc.total_topics = topicIds.length;
-    await chapterDoc.save();
+    if (lastProcessedChapter) {
+      lastProcessedChapter.topic_ids = topicIds;
+      lastProcessedChapter.total_topics = topicIds.length;
+      await lastProcessedChapter.save();
+    }
 
     // Update book counters
     const totalTopics = await Topic.countDocuments({ book_id: book._id });
@@ -431,7 +438,7 @@ export async function ingestBook(deepseekJson, adminUserId) {
       success: true,
       log,
       bookId: book._id,
-      chapterId: chapterDoc._id,
+      chapterId: lastProcessedChapter?._id,
       boardShortCode: board.short_code,
       grade: gradeVal,
       programSlug: program.slug,
