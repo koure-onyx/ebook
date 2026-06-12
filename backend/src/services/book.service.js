@@ -245,6 +245,44 @@ export async function getBooksForUser(user = null, additionalFilters = {}) {
 
   console.log('[BOOK SERVICE] Populated books sample board:', JSON.stringify(enrichedBooks[0]?.board_id));
 
+  // ALWAYS append The Holy Quran as a global resource
+  // This ensures Quran is visible regardless of grade/subject/board filters
+  const quranQuery = {
+    $or: [
+      { slug: 'the-holy-quran' },
+      { subject_slug: 'the-holy-quran' },
+      { title: /quran/i },
+      { subject: /quran/i },
+      { is_global_resource: true }
+    ],
+    is_current_edition: { $ne: false },
+    is_live: { $ne: false }
+  };
+  if (!user) quranQuery.is_public = true;
+  
+  const quranBooks = await Book.find(quranQuery)
+    .populate({ path: 'board_id', select: 'name short_code slug' })
+    .populate({ path: 'program_id', select: 'name slug' })
+    .lean();
+  
+  console.log(`[BOOK SERVICE] Found ${quranBooks.length} Quran book(s) for global inclusion`);
+  
+  // Enrich Quran books with chapter counts
+  const enrichedQuranBooks = await Promise.all(quranBooks.map(async (book) => {
+    const chapterCount = await Chapter.countDocuments({ book_id: book._id });
+    book.chapter_count = chapterCount;
+    return book;
+  }));
+  
+  // Merge results, avoiding duplicates
+  const bookIds = new Set(enrichedBooks.map(b => b._id.toString()));
+  for (const quranBook of enrichedQuranBooks) {
+    if (!bookIds.has(quranBook._id.toString())) {
+      enrichedBooks.push(quranBook);
+    }
+  }
+  console.log(`[BOOK SERVICE] Total books after Quran inclusion: ${enrichedBooks.length}`);
+
   // Sanitize for unauthenticated users
   if (!user) {
     return enrichedBooks.map(sanitizeBookForPublic);
