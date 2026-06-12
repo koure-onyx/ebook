@@ -446,11 +446,62 @@ export async function deleteBook(bookId) {
 }
 
 /**
- * Get book chapters
+ * Get book chapters with resilient fallback lookups
  */
 export async function getBookChapters(bookId) {
-  const chapters = await Chapter.find({ book_id: bookId })
+  console.log("[CHAPTER SERVICE] Fetching chapters for bookId:", bookId);
+  
+  const mongoose = await import('mongoose');
+  
+  // Convert to ObjectId if valid
+  let queryCriteria = {};
+  if (mongoose.Types.ObjectId.isValid(bookId)) {
+    queryCriteria.book_id = new mongoose.Types.ObjectId(bookId);
+  } else {
+    queryCriteria.book_id = bookId;
+  }
+  
+  // Step 1: Try standard lookup by book_id
+  let chapters = await Chapter.find(queryCriteria)
+    .populate('topics')
     .sort({ chapter_number: 1 });
-
+  
+  console.log(`[CHAPTER SERVICE] Direct lookup found ${chapters.length} chapters`);
+  
+  // Step 2: Fallback - try matching by book_slug string
+  if (!chapters || chapters.length === 0) {
+    chapters = await Chapter.find({ book_slug: bookId })
+      .populate('topics')
+      .sort({ chapter_number: 1 });
+    
+    console.log(`[CHAPTER SERVICE] book_slug fallback found ${chapters.length} chapters`);
+  }
+  
+  // Step 3: Fallback - fetch parent book and match by subject_slug
+  if (!chapters || chapters.length === 0) {
+    const Book = mongoose.model('Book');
+    const parentBook = await Book.findById(bookId).select('slug subject_slug').lean();
+    
+    if (parentBook) {
+      console.log(`[CHAPTER FALLBACK] Parent book found - slug: ${parentBook.slug}, subject_slug: ${parentBook.subject_slug}`);
+      
+      // Match chapters using case-insensitive regex against shared properties
+      const fallbackQuery = {
+        $or: [
+          { book_slug: parentBook.slug },
+          { book_slug: new RegExp(`^${parentBook.subject_slug}`, 'i') },
+          { subject_slug: new RegExp(`^${escapeRegex(parentBook.subject_slug)}$`, 'i') },
+          { subject_slug: new RegExp(`^${escapeRegex(parentBook.subject || '')}$`, 'i') }
+        ]
+      };
+      
+      chapters = await Chapter.find(fallbackQuery)
+        .populate('topics')
+        .sort({ chapter_number: 1 });
+      
+      console.log(`[CHAPTER SERVICE] Subject-based fallback found ${chapters.length} chapters`);
+    }
+  }
+  
   return chapters;
 }
