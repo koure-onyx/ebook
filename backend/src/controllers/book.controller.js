@@ -41,37 +41,57 @@ export async function getBooks(req, res, next) {
     if (subject) additionalFilters.subject_slug = subject;
     if (editionYear) additionalFilters.edition_year = Number(editionYear);
     
-    // Step B: Flexible grade matching
-    if (grade) {
-      const numericGrade = parseInt(String(grade).replace(/\D/g, ''), 10);
-      if (!isNaN(numericGrade)) {
-        additionalFilters.$or = [
-          { grade: grade },
-          { grade: numericGrade },
-          { grade: String(numericGrade) },
-          { grade: new RegExp(`\\b${numericGrade}\\b`, 'i') }
-        ];
-      } else {
-        additionalFilters.grade = new RegExp(`^${grade}$`, 'i');
-      }
-    }
-    
+    // Step A: Dynamic board relational resolution
     if (board && !boardId) {
-      // Import inline to avoid circular dependencies if any, or just use mongoose
       const mongoose = (await import('mongoose')).default;
       const Board = mongoose.model('Board');
-      const boardDoc = await Board.findOne({ short_code: board });
+      
+      // Try multiple lookup strategies for board
+      const boardDoc = await Board.findOne({ 
+        $or: [
+          { short_code: board.toUpperCase() },
+          { short_code: board.toLowerCase() },
+          { slug: board.toLowerCase() },
+          { name: new RegExp(`^${board}$`, 'i') }
+        ] 
+      });
+      
       if (boardDoc) {
-        additionalFilters.board_id = boardDoc._id;
-      } else {
-        // Fallback: Try to find by slug as well
-        const boardBySlug = await Board.findOne({ slug: board });
-        if (boardBySlug) {
-          additionalFilters.board_id = boardBySlug._id;
-        } else {
-          // Return early if board short code does not exist, to avoid pulling all books
-          return res.json(success({ books: [], isAuthenticated: !!user }));
-        }
+        additionalFilters.board_id = boardDoc._id.toString();
+      }
+      // If no board found, don't return early - let the query proceed without board filter
+      // This allows fallback queries to work
+    }
+
+    // Step B: Flexible grade matching - build a grade value array for matching
+    if (grade) {
+      const gradeParam = String(grade).trim();
+      const numericGrade = parseInt(gradeParam.replace(/\D/g, ''), 10);
+      
+      // Build array of possible grade representations
+      const gradeValues = [gradeParam];
+      if (!isNaN(numericGrade)) {
+        gradeValues.push(numericGrade);
+        gradeValues.push(String(numericGrade));
+        gradeValues.push(`Class ${numericGrade}`);
+        gradeValues.push(`Grade ${numericGrade}`);
+        gradeValues.push(`class ${numericGrade}`);
+        gradeValues.push(`grade ${numericGrade}`);
+      }
+      
+      // Use regex for flexible matching in aggregation
+      additionalFilters.grade = {
+        $in: gradeValues
+      };
+      // Also add a regex pattern for more flexible matching
+      if (!isNaN(numericGrade)) {
+        additionalFilters.$expr = {
+          $regexMatch: {
+            input: { $toString: '$grade' },
+            regex: `\\b${numericGrade}\\b`,
+            options: 'i'
+          }
+        };
       }
     }
 
@@ -81,7 +101,7 @@ export async function getBooks(req, res, next) {
     if (books.length === 0 && additionalFilters.board_id && subject && grade) {
       const fallbackFilters = { ...additionalFilters };
       delete fallbackFilters.grade;
-      delete fallbackFilters.$or;
+      delete fallbackFilters.$expr;
       const fallbackBooks = await bookService.getBooksForUser(user, fallbackFilters);
       if (fallbackBooks.length > 0) {
         books = fallbackBooks;
@@ -175,7 +195,36 @@ export async function getBookBySlug(req, res, next) {
 export async function getBookChapters(req, res, next) {
   try {
     const { bookId } = req.params;
-    const chapters = await bookService.getBookChapters(bookId);
+    let chapters = await bookService.getBookChapters(bookId);
+    
+    // Resilient fallback: if no chapters found by bookId, try searching by subject_slug
+    if (chapters.length === 0) {
+      const mongoose = (await import('mongoose')).default;
+      const Book = mongoose.model('Book');
+      const Chapter = mongoose.model('Chapter');
+      
+      // Get the book to find its subject_slug
+      const book = await Book.findById(bookId).select('subject_slug').lean();
+      if (book?.subject_slug) {
+        // Fallback: find chapters from any book with the same subject_slug
+        const fallbackChapters = await Chapter.aggregate([
+          { $lookup: { from: 'books', localField: 'book_id', foreignField: '_id', as: 'book' } },
+          { $unwind: '$book' },
+          { $match: { 'book.subject_slug': book.subject_slug } },
+          { $sort: { chapter_number: 1 } }
+        ]);
+        
+        if (fallbackChapters.length > 0) {
+          chapters = fallbackChapters.map(c => ({
+            ...c,
+            _id: c._id,
+            chapter_number: c.chapter_number,
+            title: c.title,
+            slug: c.slug
+          }));
+        }
+      }
+    }
     
     // Ensure response matches DeepSeek schema with student_learning_outcomes, chapter_summary
     const formattedChapters = chapters.map(chapter => ({
