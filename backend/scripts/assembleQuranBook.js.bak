@@ -56,7 +56,6 @@ async function assembleQuranBook() {
     {
       title: 'The Holy Quran',
       grade: 'All',
-      is_global_resource: true,
       subject_slug: 'the-holy-quran'
     },
     {
@@ -64,7 +63,6 @@ async function assembleQuranBook() {
       subject: 'Tarjuma-tul-Quran',
       subject_slug: 'the-holy-quran',
       grade: 'All', // Explicitly set to All
-      is_global_resource: true,
       edition_year: 2024,
       publisher: 'Punjab Curriculum and Textbook Board',
       authors: ['Allah (SWT)'],
