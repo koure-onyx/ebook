@@ -155,11 +155,22 @@ export async function getBooksForUser(user = null, additionalFilters = {}) {
     finalQuery.subject_slug = subjectValue;
   }
 
-  // 2. Handle grade with $in operator for type variations
+  // 2. Handle grade with $in operator for type variations including metadata.grade_level
   if (additionalFilters.grade) {
     const gradeFilter = additionalFilters.grade;
     if (gradeFilter.$in) {
-      finalQuery.grade = { $in: gradeFilter.$in };
+      // Use $or to match multiple grade fields
+      const rawGrade = String(gradeFilter.$in[0]).trim();
+      const numericGrade = parseInt(rawGrade.replace(/\D/g, ''), 10);
+      const gradeValues = [rawGrade];
+      if (!isNaN(numericGrade)) {
+        gradeValues.push(numericGrade, String(numericGrade), `Class ${numericGrade}`, `Grade ${numericGrade}`);
+      }
+      finalQuery.$or = [
+        { grade: { $in: gradeValues } },
+        { 'metadata.grade_level': { $in: gradeValues } },
+        { grade_level: { $in: gradeValues } }
+      ];
     } else if (typeof gradeFilter === 'string' || typeof gradeFilter === 'number') {
       const rawGrade = String(gradeFilter).trim();
       const numericGrade = parseInt(rawGrade.replace(/\D/g, ''), 10);
@@ -167,7 +178,11 @@ export async function getBooksForUser(user = null, additionalFilters = {}) {
       if (!isNaN(numericGrade)) {
         gradeValues.push(numericGrade, String(numericGrade), `Class ${numericGrade}`, `Grade ${numericGrade}`);
       }
-      finalQuery.grade = { $in: gradeValues };
+      finalQuery.$or = [
+        { grade: { $in: gradeValues } },
+        { 'metadata.grade_level': { $in: gradeValues } },
+        { grade_level: { $in: gradeValues } }
+      ];
     }
   }
 
