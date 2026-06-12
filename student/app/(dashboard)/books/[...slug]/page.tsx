@@ -2,7 +2,9 @@ import { notFound } from 'next/navigation';
 import { getBookBySubjectServer, getBooksServer } from '@/lib/api/client';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import FullBookViewer from '@/components/reader/FullBookViewer';
+import { BookChapterIndex } from '@/components/reader/BookChapterIndex';
+import { TopicLevelReader } from '@/components/reader/TopicLevelReader';
+import { ChapterReader } from '@/components/reader/ChapterReader';
 
 function normalizeSegment(value: string | null | undefined) {
   return String(value ?? '').trim().toLowerCase();
@@ -212,23 +214,129 @@ export default async function ReaderPage({
 
     const program = book.program_id || { name: 'Matriculation' };
 
-    let initialChapterNumber = null;
+    // Determine which view to render based on URL structure
+    // If topicSlug exists, render TopicLevelReader (dedicated topic page)
+    // If chapterSlug exists (but no topic), render ChapterReader
+    // Otherwise render BookChapterIndex (book landing page)
+    
+    if (topicSlug && chapterSlug) {
+      // Find the active topic and its siblings for navigation
+      const activeChapter = chaptersWithTopics.find((ch: any) => ch.slug === chapterSlug);
+      const activeTopic = activeChapter?.topics?.find((t: any) => t.slug === topicSlug);
+      
+      if (!activeTopic || !activeChapter) {
+        notFound();
+      }
+      
+      // Build flat list of all topics in order for sibling navigation
+      const allTopicsInOrder = chaptersWithTopics.flatMap((ch: any) => 
+        ch.topics.map((t: any) => ({ ...t, chapterSlug: ch.slug }))
+      );
+      
+      const currentIndex = allTopicsInOrder.findIndex((t: any) => t._id === activeTopic._id);
+      const previousTopic = currentIndex > 0 ? allTopicsInOrder[currentIndex - 1] : null;
+      const nextTopic = currentIndex < allTopicsInOrder.length - 1 ? allTopicsInOrder[currentIndex + 1] : null;
+      
+      // Fetch user progress for this topic if logged in
+      let userProgress = null;
+      if (isLoggedIn && token) {
+        try {
+          const progressRes = await fetch(
+            `${API_URL}/progress/topic/${activeTopic._id}`,
+            {
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              }
+            }
+          );
+          if (progressRes.ok) {
+            const progressData = await progressRes.json();
+            userProgress = progressData.data || null;
+          }
+        } catch (e) {
+          console.error('Failed to fetch user progress:', e);
+        }
+      }
+      
+      return (
+        <TopicLevelReader
+          topic={activeTopic}
+          previousTopic={previousTopic ? { _id: previousTopic._id, title: previousTopic.title, slug: previousTopic.slug, chapterSlug: previousTopic.chapterSlug } : null}
+          nextTopic={nextTopic ? { _id: nextTopic._id, title: nextTopic.title, slug: nextTopic.slug, chapterSlug: nextTopic.chapterSlug } : null}
+          chapters={chaptersWithTopics}
+          isLoggedIn={isLoggedIn}
+          boardSlug={boardCode || undefined}
+          subjectSlug={subjectSlug}
+          programSlug={program.slug || undefined}
+          grade={grade || undefined}
+          userProgress={userProgress}
+        />
+      );
+    }
+    
     if (chapterSlug) {
-      const activeCh = chapters.find((ch: any) => ch.slug === chapterSlug);
-      if (activeCh) {
-        initialChapterNumber = activeCh.chapter_number;
+      // Render chapter-level view with topic listing
+      const activeChapter = chaptersWithTopics.find((ch: any) => ch.slug === chapterSlug);
+      if (!activeChapter) {
+        notFound();
+      }
+      
+      const chapterIndex = chaptersWithTopics.findIndex((ch: any) => ch.slug === chapterSlug);
+      const prevChapterSlug = chapterIndex > 0 ? chaptersWithTopics[chapterIndex - 1].slug : null;
+      const nextChapterSlug = chapterIndex < chaptersWithTopics.length - 1 ? chaptersWithTopics[chapterIndex + 1].slug : null;
+      
+      return (
+        <ChapterReader
+          book={book}
+          program={program}
+          chapter={activeChapter}
+          chapterTopics={activeChapter.topics || []}
+          chapters={chaptersWithTopics}
+          isLoggedIn={isLoggedIn}
+          boardSlug={boardCode || ''}
+          subjectSlug={subjectSlug}
+          programSlug={program.slug || ''}
+          grade={grade || ''}
+          prevChapterSlug={prevChapterSlug}
+          nextChapterSlug={nextChapterSlug}
+        />
+      );
+    }
+    
+    // Default: Book landing page with chapter index
+    // Calculate user progress for the book
+    let userProgress = undefined;
+    if (isLoggedIn && token) {
+      try {
+        const progressRes = await fetch(
+          `${API_URL}/progress/book/${book._id}`,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
+          }
+        );
+        if (progressRes.ok) {
+          const progressData = await progressRes.json();
+          userProgress = progressData.data || undefined;
+        }
+      } catch (e) {
+        console.error('Failed to fetch book progress:', e);
       }
     }
-
+    
     return (
-      <FullBookViewer
+      <BookChapterIndex
         book={book}
         program={program}
         chapters={chaptersWithTopics}
-        topics={allTopics}
-        isLoggedIn={isLoggedIn}
-        initialChapterNumber={initialChapterNumber}
-        initialTopicSlug={topicSlug}
+        subjectSlug={subjectSlug}
+        boardSlug={boardCode || undefined}
+        programSlug={program.slug || undefined}
+        grade={grade || undefined}
+        userProgress={userProgress}
       />
     );
   } catch (error) {

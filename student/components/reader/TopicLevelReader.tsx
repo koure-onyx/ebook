@@ -164,20 +164,99 @@ export default function TopicLevelReader({
         topicTitle={topic.title}
       />
 
-      {/* Reader Header */}
+      {/* Top Navigation Bar - Table of Contents + Hamburger */}
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3 md:px-8">
+          {/* Left: Hamburger Menu Toggle */}
+          <button
+            type="button"
+            onClick={() => setIsSidebarOpen(true)}
+            className="rounded-lg p-2 text-slate-600 hover:bg-slate-100"
+            aria-label="Open table of contents"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          
+          {/* Center: Table of Contents Button - Routes to Book Landing */}
           <Link
             href={bookUrl(subjectSlug, opts)}
-            className="truncate font-display font-bold text-slate-800 hover:text-indigo-600"
+            className="absolute left-1/2 -translate-x-1/2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
           >
-            ← {topic.book_id.title}
+            Table of Contents
           </Link>
-          <div className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-            {topic.program_id?.name}
-          </div>
+          
+          {/* Right: Spacer for visual balance */}
+          <div className="w-9" />
         </div>
       </header>
+      
+      {/* Sidebar Drawer - Active Status Index */}
+      {isLoggedIn && (
+        <>
+          {/* Drawer Backdrop */}
+          {isSidebarOpen && (
+            <div
+              className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm lg:hidden"
+              onClick={() => setIsSidebarOpen(false)}
+            />
+          )}
+          
+          {/* Drawer Panel */}
+          <aside
+            className={`fixed left-0 top-0 z-50 h-[100dvh] w-80 overflow-y-auto border-r border-slate-200 bg-white shadow-xl transition-transform duration-300 ${
+              isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}
+          >
+            <div className="border-b border-slate-100 bg-slate-50/80 p-4">
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-emerald-800">
+                {topic.program_id?.name || 'Program'}
+              </div>
+              <h2 className="font-display text-lg font-bold leading-snug text-slate-900">{topic.book_id.title}</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Chapter {topic.chapter_id.chapter_number}: {topic.chapter_id.title}
+              </p>
+            </div>
+            
+            <nav className="p-3">
+              <div className="mb-4">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Current Chapter</h3>
+                <div className="space-y-1">
+                  {chapters
+                    .find((ch) => ch.slug === topic.chapter_id.slug)?.topics?.map((t: any) => {
+                      const isCurrent = t._id === topic._id;
+                      const isRead = t.progress?.is_read || false;
+                      const isMastered = t.progress?.quiz_score >= 80;
+                      
+                      return (
+                        <Link
+                          key={t._id}
+                          href={`${topicUrl(subjectSlug, topic.chapter_id.slug, t.slug, opts)}${previewParam}`}
+                          onClick={() => setIsSidebarOpen(false)}
+                          className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
+                            isCurrent
+                              ? 'bg-emerald-50 font-semibold text-emerald-800 ring-1 ring-emerald-200'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {isMastered ? (
+                              <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
+                            ) : isRead ? (
+                              <Circle className="h-4 w-4 fill-emerald-200 text-emerald-600 shrink-0" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-slate-300 shrink-0" />
+                            )}
+                            <span className="truncate">{t.title}</span>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                </div>
+              </div>
+            </nav>
+          </aside>
+        </>
+      )}
 
       {/* Main Content */}
       <main className="min-w-0 flex-1">
@@ -302,7 +381,7 @@ export default function TopicLevelReader({
             </div>
           )}
 
-          {/* Topic Navigation */}
+          {/* Sibling Next / Previous Navigation Footers */}
           <div className="mt-8 flex items-center justify-between gap-4 border-t border-slate-200 pt-8">
             <Button
               onClick={handlePreviousTopic}
@@ -339,64 +418,8 @@ export default function TopicLevelReader({
         </div>
       </main>
 
-      {/* Desktop Sidebar (Sticky) */}
-      {isLoggedIn && (
-        <aside className="hidden lg:block">
-          <div className="fixed right-8 top-24 z-30 w-72 space-y-3">
-            {/* AI Explain */}
-            <Button
-              onClick={() => setIsAIExplainOpen(true)}
-              variant="outline"
-              className="w-full justify-start gap-2"
-            >
-              <Sparkles className="h-4 w-4 text-emerald-600" />
-              🤖 AI Explain
-            </Button>
-
-            {/* Save to Vault */}
-            <SaveToVaultButton topicId={topic._id} topicTitle={topic.title} />
-
-            {/* Add Note */}
-            <AddNoteButton topicId={topic._id} topicTitle={topic.title} />
-
-            {/* Mini Progress Panel */}
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <h3 className="mb-3 text-sm font-semibold text-slate-700">
-                Chapter {topic.chapter_id.chapter_number} Progress
-              </h3>
-              <div className="space-y-2">
-                {chapters
-                  .find((ch) => ch.slug === topic.chapter_id.slug)?.topics?.slice(0, 8)
-                  .map((t: any, idx: number) => {
-                    const isCurrent = t._id === topic._id;
-                    const isThisRead = t.progress?.is_read || false;
-                    const isThisMastered = t.progress?.quiz_score >= 80;
-                    
-                    return (
-                      <div
-                        key={t._id}
-                        className={`flex items-center gap-2 text-sm ${
-                          isCurrent ? "font-medium text-emerald-700" : "text-slate-600"
-                        }`}
-                      >
-                        {isThisMastered ? (
-                          <CheckCircle className="h-4 w-4 text-emerald-600" />
-                        ) : isThisRead ? (
-                          <Circle className="h-4 w-4 fill-emerald-200 text-emerald-600" />
-                        ) : (
-                          <Circle className="h-4 w-4 text-slate-300" />
-                        )}
-                        <span className="truncate">{t.title}</span>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          </div>
-        </aside>
-      )}
-
-      {/* Mobile FABs */}
+      {/* Desktop Sidebar (Sticky) - Removed per directive: No persistent sidebars on book landing */}
+      {/* Mobile FABs - Kept for quick AI Explain access */}
       {isLoggedIn && (
         <div className="fixed bottom-24 right-4 z-30 flex flex-col gap-2 lg:hidden">
           <button
