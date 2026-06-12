@@ -111,10 +111,33 @@ export const getChaptersByBook = async (bookId) => {
  * display_order: 0 = intro, 1-N = regular topics, 999 = exercises
  */
 export const getChapterTopics = async (chapterId) => {
-  const topics = await Topic.find({ chapter_id: chapterId })
-    .sort({ display_order: 1 })
-    .select('-__v')
-    .lean();
+  console.log(`[TOPIC CAST FIX] Raw lookup value: ${chapterId}`);
+  
+  if (!chapterId) {
+    console.log('[TOPIC CAST FIX] No chapterId provided, returning empty array');
+    return [];
+  }
+
+  // Safely convert the string token into a Mongoose ObjectId hex format
+  const mongoose = await import('mongoose');
+  const safeChapterId = mongoose.Types.ObjectId.isValid(chapterId) 
+    ? new mongoose.Types.ObjectId(chapterId) 
+    : chapterId;
+
+  console.log(`[TOPIC CAST FIX] Safe lookup value: ${safeChapterId}`);
+
+  // Execute a safe fallback query catching either the raw string or structured ObjectId field
+  const topics = await Topic.find({
+    $or: [
+      { chapter_id: safeChapterId },
+      { chapter_id: chapterId.toString() }
+    ]
+  })
+  .sort({ display_order: 1 })
+  .select('-__v')
+  .lean();
+
+  console.log(`[TOPIC CAST FIX] Successfully extracted ${topics.length} text content objects.`);
 
   // Ensure content_blocks are rendered properly
   return topics.map(topic => {
