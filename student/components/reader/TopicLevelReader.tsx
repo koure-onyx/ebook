@@ -211,9 +211,9 @@ export default function TopicLevelReader({
               <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-emerald-800">
                 {topic.program_id?.name || 'Program'}
               </div>
-              <h2 className="font-display text-lg font-bold leading-snug text-slate-900">{topic.book_id.title}</h2>
+              <h2 className="font-display text-lg font-bold leading-snug text-slate-900">{topic.book_id?.title || "Book Reader"}</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Chapter {topic.chapter_id.chapter_number}: {topic.chapter_id.title}
+                Chapter {topic.chapter_id?.chapter_number ?? '?'}: {topic.chapter_id?.title || "Chapter"}
               </p>
             </div>
             
@@ -267,11 +267,11 @@ export default function TopicLevelReader({
             programName={topic.program_id?.name || 'Program'}
             boardSlug={boardSlug}
             programSlug={programSlug}
-            bookTitle={topic.book_id.title}
+            bookTitle={topic.book_id?.title || "Book Reader"}
             subjectSlug={subjectSlug}
-            chapterSlug={topic.chapter_id.slug}
-            chapterNumber={topic.chapter_id.chapter_number}
-            chapterTitle={topic.chapter_id.title}
+            chapterSlug={topic.chapter_id?.slug || ""}
+            chapterNumber={topic.chapter_id?.chapter_number ?? 0}
+            chapterTitle={topic.chapter_id?.title || "Chapter"}
             topicTitle={topic.title}
             topicSlug={topic.slug}
           />
@@ -280,7 +280,7 @@ export default function TopicLevelReader({
           <div className="mb-6">
             <div className="flex flex-wrap items-center gap-3">
               <span className="rounded-full bg-purple-100 px-3 py-1 text-sm font-bold text-purple-800">
-                {topic.topic_number || `${topic.chapter_id.chapter_number}.${topic.display_order}`}
+                {topic.topic_number || `${topic.chapter_id?.chapter_number ?? '?'}.${topic.display_order}`}
               </span>
               {topic.difficulty && (
                 <span
