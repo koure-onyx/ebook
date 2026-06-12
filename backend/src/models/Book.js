@@ -41,6 +41,7 @@ const bookSchema = new mongoose.Schema({
   ingestion_log: [String],
   is_live: { type: Boolean, default: false },
   is_public: { type: Boolean, default: true },
+  is_global_resource: { type: Boolean, default: false, index: true },
   original_pdf_url: String,
   cover_image_url: String,
   created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
