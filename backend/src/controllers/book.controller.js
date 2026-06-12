@@ -38,7 +38,8 @@ export async function getBooks(req, res, next) {
     if (boardId) additionalFilters.board_id = boardId;
     if (programId) additionalFilters.program_id = programId;
     if (classLevel) additionalFilters.classLevel = classLevel;
-    if (subject) additionalFilters.subject_slug = subject;
+    // Use case-insensitive regex for subject matching
+    if (subject) additionalFilters.subject_slug = new RegExp(`^${subject.trim()}$`, 'i');
     if (editionYear) additionalFilters.edition_year = Number(editionYear);
     
     // Step A: Dynamic board relational resolution
@@ -99,7 +100,9 @@ export async function getBooks(req, res, next) {
     
     // Step D: Final fallback - search by subject_slug only if everything else fails
     if (books.length === 0 && subject) {
-      const subjectOnlyFilters = { subject_slug: subject };
+      // Extract the regex pattern string for subject-only search
+      const subjectValue = typeof subject === 'object' && subject.source ? subject.source.replace(/^\^|\$$/g, '') : subject;
+      const subjectOnlyFilters = { subject_slug: new RegExp(`^${subjectValue}$`, 'i') };
       const subjectOnlyBooks = await bookService.getBooksForUser(user, subjectOnlyFilters);
       if (subjectOnlyBooks.length > 0) {
         books = subjectOnlyBooks;

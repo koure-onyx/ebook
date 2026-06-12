@@ -156,10 +156,17 @@ export async function getBooksForUser(user = null, additionalFilters = {}) {
   }
 
   // Extract special operators that need aggregation handling
-  const { grade, ...restFilters } = additionalFilters;
+  const { grade, subject_slug, ...restFilters } = additionalFilters;
   
   // Merge regular filters
   filter = { ...filter, ...restFilters };
+  
+  // Handle subject_slug with regex - convert RegExp to $regex object for MongoDB aggregation
+  if (subject_slug instanceof RegExp) {
+    filter.subject_slug = { $regex: subject_slug.source, $options: 'i' };
+  } else if (subject_slug) {
+    filter.subject_slug = subject_slug;
+  }
   
   // Handle grade with $in operator - MongoDB $in works directly in match stage
   if (grade?.$in) {

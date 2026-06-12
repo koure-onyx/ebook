@@ -150,11 +150,11 @@ export async function ingestBook(deepseekJson, adminUserId) {
 
     // STEP 3: Upsert Book — handle version control
     // Auto-generate slugs if not provided in metadata
-    const subjectSlug = generateSlug(book_metadata.subject_slug || book_metadata.subject);
-    const bookSlug = generateSlug(
+    const subjectSlug = String(book_metadata.subject_slug || book_metadata.subject || '').toLowerCase().trim();
+    const bookSlug = String(
       book_metadata.slug ||
       `${book_metadata.subject}-${book_metadata.grade_level}-${board.short_code}-${book_metadata.edition_year}`
-    );
+    ).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-');
 
     // Find any existing current edition for this subject+program+board
     const existingCurrentBook = await Book.findOne({
@@ -172,7 +172,7 @@ export async function ingestBook(deepseekJson, adminUserId) {
       // Same edition — just update
       book = existingCurrentBook;
       book.board = boardVal;
-      book.grade = gradeVal;
+      book.grade = String(gradeVal || '').toLowerCase().trim();
       book.slug = book.slug || bookSlug;
       book.subject_slug = book.subject_slug || subjectSlug;
       book.subject = book.subject || book_metadata.subject;
@@ -195,7 +195,7 @@ export async function ingestBook(deepseekJson, adminUserId) {
         subject: book_metadata.subject,
         subject_slug: subjectSlug,
         board: boardVal,
-        grade: gradeVal,
+        grade: String(gradeVal || '').toLowerCase().trim(),
         program_id: program._id,
         board_id: board._id,
         edition_year: book_metadata.edition_year,
@@ -222,7 +222,7 @@ export async function ingestBook(deepseekJson, adminUserId) {
         subject: book_metadata.subject,
         subject_slug: subjectSlug,
         board: boardVal,
-        grade: gradeVal,
+        grade: String(gradeVal || '').toLowerCase().trim(),
         program_id: program._id,
         board_id: board._id,
         edition_year: book_metadata.edition_year,
