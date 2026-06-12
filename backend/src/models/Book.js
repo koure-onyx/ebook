@@ -1,10 +1,11 @@
 import mongoose from 'mongoose';
+import { generateSlug } from '../utils/slug.js';
 
 const bookSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true },
-  slug: { type: String, required: true, unique: true, lowercase: true },
+  slug: { type: String, required: false, unique: true, lowercase: true, sparse: true },
   subject: { type: String, required: true },
-  subject_slug: { type: String, required: true },
+  subject_slug: { type: String, required: false },
   board: String,
   grade: String,
   program_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Program', required: true, index: true },
@@ -62,5 +63,18 @@ bookSchema.index({ board: 1, grade: 1, is_live: 1 });
 bookSchema.index({ board_id: 1, program_id: 1 });
 bookSchema.index({ subject_slug: 1, is_live: 1 });
 bookSchema.index({ subject: 1, classLevel: 1 });
+
+// Pre-save middleware to auto-generate slugs if not provided
+bookSchema.pre('save', function(next) {
+  // Generate slug from title if not provided
+  if (!this.slug && this.title) {
+    this.slug = generateSlug(this.title);
+  }
+  // Generate subject_slug from subject if not provided
+  if (!this.subject_slug && this.subject) {
+    this.subject_slug = generateSlug(this.subject);
+  }
+  next();
+});
 
 export const Book = mongoose.models.Book || mongoose.model('Book', bookSchema);
