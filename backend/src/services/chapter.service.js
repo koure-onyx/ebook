@@ -40,10 +40,14 @@ export const getChapterBySlug = async (slug, bookId) => {
  * Implements dual-lookup strategy: first by book_id, then falls back to subject_slug/book_slug
  */
 export const getChaptersByBook = async (bookId) => {
+  console.log(`[CHAPTER SERVICE] Fetching chapters for bookId: ${bookId}`);
+  
   // Step A: Attempt standard lookup by Book Object ID
   let chapters = await Chapter.find({ book_id: bookId })
     .sort({ display_order: 1, chapter_number: 1 })
     .lean();
+
+  console.log(`[CHAPTER SERVICE] Direct lookup found ${chapters.length} chapters`);
 
   // Step B: Fallback Lookup if the array comes back empty
   if (!chapters || chapters.length === 0) {
@@ -54,26 +58,15 @@ export const getChaptersByBook = async (bookId) => {
       if (parentBook && (parentBook.subject_slug || parentBook.slug)) {
         console.log(`[CHAPTER FALLBACK] Routing search for Book Slug: ${parentBook.slug}, Subject Slug: ${parentBook.subject_slug}`);
         
-        // Cross-reference chapters matching that text subject string or book_slug
-        const fallbackQuery = {
-          $or: []
-        };
-        
-        if (parentBook.slug) {
-          fallbackQuery.$or.push({ book_slug: parentBook.slug });
-        }
-        if (parentBook.subject_slug) {
-          // Match against subject_slug with case-insensitive regex
-          fallbackQuery.$or.push({ subject_slug: new RegExp(`^${parentBook.subject_slug}$`, 'i') });
-          // Also try matching book_slug starting with subject_slug
-          fallbackQuery.$or.push({ book_slug: new RegExp(`^${parentBook.subject_slug}`, 'i') });
-        }
-        if (parentBook.subject) {
-          // Try matching subject field directly
-          fallbackQuery.$or.push({ subject_slug: new RegExp(`^${parentBook.subject}$`, 'i') });
-        }
-        
-        const fallbackChapters = await Chapter.find(fallbackQuery)
+        // Cross-reference chapters using exact match OR case-insensitive regex
+        const fallbackChapters = await Chapter.find({
+          $or: [
+            { book_slug: parentBook.slug },
+            { book_slug: new RegExp(`^${parentBook.subject_slug}`, 'i') },
+            { subject_slug: new RegExp(`^${parentBook.subject_slug}$`, 'i') },
+            { subject_slug: new RegExp(`^${parentBook.subject}$`, 'i') }
+          ]
+        })
           .sort({ display_order: 1, chapter_number: 1 })
           .lean();
         
@@ -88,6 +81,8 @@ export const getChaptersByBook = async (bookId) => {
       console.error('[CHAPTER SERVICE] Fallback lookup failed:', err.message);
     }
   }
+  
+  console.log(`[CHAPTER SERVICE] Total chapters to return: ${chapters.length}`);
 
   // Ensure all DeepSeek schema fields are present
   return chapters.map(chapter => ({
