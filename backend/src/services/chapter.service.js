@@ -49,19 +49,28 @@ export const getChaptersByBook = async (bookId) => {
   if (!chapters || chapters.length === 0) {
     try {
       // Locate the parent book entry first to pull its text subject_slug
-      const parentBook = await Book.findById(bookId).select('subject_slug slug').lean();
+      const parentBook = await Book.findById(bookId).select('subject_slug slug title subject').lean();
       
       if (parentBook && (parentBook.subject_slug || parentBook.slug)) {
+        console.log(`[CHAPTER FALLBACK] Routing search for Book Slug: ${parentBook.slug}, Subject Slug: ${parentBook.subject_slug}`);
+        
         // Cross-reference chapters matching that text subject string or book_slug
         const fallbackQuery = {
           $or: []
         };
         
-        if (parentBook.subject_slug) {
-          fallbackQuery.$or.push({ subject_slug: parentBook.subject_slug });
-        }
         if (parentBook.slug) {
           fallbackQuery.$or.push({ book_slug: parentBook.slug });
+        }
+        if (parentBook.subject_slug) {
+          // Match against subject_slug with case-insensitive regex
+          fallbackQuery.$or.push({ subject_slug: new RegExp(`^${parentBook.subject_slug}$`, 'i') });
+          // Also try matching book_slug starting with subject_slug
+          fallbackQuery.$or.push({ book_slug: new RegExp(`^${parentBook.subject_slug}`, 'i') });
+        }
+        if (parentBook.subject) {
+          // Try matching subject field directly
+          fallbackQuery.$or.push({ subject_slug: new RegExp(`^${parentBook.subject}$`, 'i') });
         }
         
         const fallbackChapters = await Chapter.find(fallbackQuery)
@@ -69,7 +78,10 @@ export const getChaptersByBook = async (bookId) => {
           .lean();
         
         if (fallbackChapters && fallbackChapters.length > 0) {
+          console.log(`[CHAPTER FALLBACK] Found ${fallbackChapters.length} chapters via fallback query`);
           chapters = fallbackChapters;
+        } else {
+          console.log(`[CHAPTER FALLBACK] No chapters found via fallback query`);
         }
       }
     } catch (err) {
