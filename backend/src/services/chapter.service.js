@@ -139,42 +139,10 @@ export const getChapterTopics = async (chapterId) => {
 
   console.log(`[TOPIC CAST FIX] Successfully extracted ${topics.length} text content objects.`);
 
-  // Ensure content_blocks are rendered properly
-  return topics.map(topic => {
-    const topicObj = topic.toObject ? topic.toObject() : { ...topic };
-    
-    // Ensure all DeepSeek schema fields exist
-    return {
-      _id: topicObj._id,
-      title: topicObj.title,
-      title_urdu: topicObj.title_urdu || '',
-      slug: topicObj.slug,
-      topic_number: topicObj.topic_number || '',
-      display_order: topicObj.display_order,
-      difficulty: topicObj.difficulty || 'medium',
-      estimated_read_time: topicObj.estimated_read_time || 3,
-      edition_year: topicObj.edition_year,
-      raw_text: topicObj.raw_text || '',
-      clean_html: topicObj.clean_html || '',
-      content_blocks: topicObj.content_blocks || [],
-      formulas: topicObj.formulas || [],
-      key_terms: topicObj.key_terms || [],
-      book_mcqs: topicObj.book_mcqs || [],
-      book_short_questions: topicObj.book_short_questions || [],
-      book_problems: topicObj.book_problems || [],
-      keywords: topicObj.keywords || [],
-      quran_reference: topicObj.quran_reference || null,
-      quran_word_alignments: topicObj.quran_word_alignments || [],
-      quran_textbook_translation: topicObj.quran_textbook_translation || '',
-      quran_textbook_tafsir: topicObj.quran_textbook_tafsir || '',
-      seo: topicObj.seo || {
-        meta_title: '',
-        meta_description: '',
-        keywords: [],
-        source_page: 0
-      }
-    };
-  });
+  // CRITICAL: Return raw array directly to preserve ALL database properties!
+  // Do NOT use .map() as it can drop fields or cause empty serialization
+  console.log(`[TOPIC RAW DELIVERY] Returning ${topics.length} unmolested topic documents`);
+  return topics || [];
 };
 
 /**
