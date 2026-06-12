@@ -468,12 +468,23 @@ export async function getBookChapters(bookId) {
   
   console.log(`[CHAPTER SERVICE] Direct lookup found ${chapters.length} chapters`);
   
-  // Ensure topics array exists on each chapter
-  chapters = chapters.map(ch => {
+  // Ensure topics array exists on each chapter AND manually fetch topics from database
+  const Topic = mongoose.model('Topic');
+  chapters = await Promise.all(chapters.map(async (ch) => {
     const chapterObj = ch.toObject ? ch.toObject() : ch;
-    if (!chapterObj.topics) chapterObj.topics = [];
+    
+    console.log(`[MANUAL STITCH] Querying topics for chapter ID: ${chapterObj._id}`);
+    
+    // Query the topics collection directly using the chapter_id reference
+    const databaseTopics = await Topic.find({ chapter_id: chapterObj._id })
+      .sort({ topic_number: 1 })
+      .lean();
+
+    chapterObj.topics = databaseTopics || [];
+    console.log(` -> Stitched ${chapterObj.topics.length} topics into Chapter: ${chapterObj.title || chapterObj.chapter_number}`);
+    
     return chapterObj;
-  });
+  }));
   
   // Step 2: Fallback - try matching by book_slug string
   if (!chapters || chapters.length === 0) {
@@ -481,12 +492,22 @@ export async function getBookChapters(bookId) {
       .setOptions({ strictPopulate: false })
       .sort({ chapter_number: 1 });
     
-    // Ensure topics array exists
-    chapters = chapters.map(ch => {
+    // Ensure topics array exists AND manually fetch topics from database
+    chapters = await Promise.all(chapters.map(async (ch) => {
       const chapterObj = ch.toObject ? ch.toObject() : ch;
-      if (!chapterObj.topics) chapterObj.topics = [];
+      
+      console.log(`[MANUAL STITCH] Querying topics for chapter ID: ${chapterObj._id}`);
+      
+      // Query the topics collection directly using the chapter_id reference
+      const databaseTopics = await Topic.find({ chapter_id: chapterObj._id })
+        .sort({ topic_number: 1 })
+        .lean();
+
+      chapterObj.topics = databaseTopics || [];
+      console.log(` -> Stitched ${chapterObj.topics.length} topics into Chapter: ${chapterObj.title || chapterObj.chapter_number}`);
+      
       return chapterObj;
-    });
+    }));
     
     console.log(`[CHAPTER SERVICE] book_slug fallback found ${chapters.length} chapters`);
   }
@@ -513,12 +534,22 @@ export async function getBookChapters(bookId) {
         .setOptions({ strictPopulate: false })
         .sort({ chapter_number: 1 });
       
-      // Ensure topics array exists
-      chapters = chapters.map(ch => {
+      // Ensure topics array exists AND manually fetch topics from database
+      chapters = await Promise.all(chapters.map(async (ch) => {
         const chapterObj = ch.toObject ? ch.toObject() : ch;
-        if (!chapterObj.topics) chapterObj.topics = [];
+        
+        console.log(`[MANUAL STITCH] Querying topics for chapter ID: ${chapterObj._id}`);
+        
+        // Query the topics collection directly using the chapter_id reference
+        const databaseTopics = await Topic.find({ chapter_id: chapterObj._id })
+          .sort({ topic_number: 1 })
+          .lean();
+
+        chapterObj.topics = databaseTopics || [];
+        console.log(` -> Stitched ${chapterObj.topics.length} topics into Chapter: ${chapterObj.title || chapterObj.chapter_number}`);
+        
         return chapterObj;
-      });
+      }));
       
       console.log(`[CHAPTER SERVICE] Subject-based fallback found ${chapters.length} chapters`);
     }
