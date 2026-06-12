@@ -84,11 +84,11 @@ async function assembleQuranBook() {
   // Create introduction chapter
   const introChapter = await Chapter.findOneAndUpdate(
     { 
-      book: quranBook._id,
+      book_id: quranBook._id,
       chapter_number: 0
     },
     {
-      book: quranBook._id,
+      book_id: quranBook._id,
       chapter_number: 0,
       chapter_number_display: 'Introduction',
       title: 'Introduction to the Holy Quran',
@@ -124,11 +124,11 @@ async function assembleQuranBook() {
     // Create chapter for Surah
     const surahChapter = await Chapter.findOneAndUpdate(
       {
-        book: quranBook._id,
+        book_id: quranBook._id,
         chapter_number: surahNum
       },
       {
-        book: quranBook._id,
+        book_id: quranBook._id,
         chapter_number: surahNum,
         chapter_number_display: `Surah ${surahNum}`,
         title: `${firstVerse.surah_name_arabic} (${firstVerse.surah_name_english})`,
