@@ -140,84 +140,102 @@ function sanitizeBookForPublic(book) {
  * Matches source: apps/student/app/api/books/route.ts
  */
 export async function getBooksForUser(user = null, additionalFilters = {}) {
-  let filter = {};
+  // Build a clean, flat query filter from scratch
+  const finalQuery = {};
 
-  if (user && user.role !== 'admin') {
-    // Authenticated user - apply personalized filtering
-    const profile = await resolveUserContentProfile(user);
-    filter = buildBookFilter(profile);
-  } else if (!user) {
-    // Unauthenticated - show only public, current edition books
-    filter = {
+  // 1. Process clean, case-insensitive Subject match
+  if (additionalFilters.subject_slug) {
+    let subjectValue = additionalFilters.subject_slug;
+    // Convert RegExp to $regex format for aggregation
+    if (subjectValue instanceof RegExp) {
+      subjectValue = { $regex: subjectValue.source, $options: 'i' };
+    } else if (typeof subjectValue === 'string') {
+      subjectValue = new RegExp(`^${subjectValue.trim()}$`, 'i');
+    }
+    finalQuery.subject_slug = subjectValue;
+  }
+
+  // 2. Handle grade with $in operator for type variations
+  if (additionalFilters.grade) {
+    const gradeFilter = additionalFilters.grade;
+    if (gradeFilter.$in) {
+      finalQuery.grade = { $in: gradeFilter.$in };
+    } else if (typeof gradeFilter === 'string' || typeof gradeFilter === 'number') {
+      const rawGrade = String(gradeFilter).trim();
+      const numericGrade = parseInt(rawGrade.replace(/\D/g, ''), 10);
+      const gradeValues = [rawGrade];
+      if (!isNaN(numericGrade)) {
+        gradeValues.push(numericGrade, String(numericGrade), `Class ${numericGrade}`, `Grade ${numericGrade}`);
+      }
+      finalQuery.grade = { $in: gradeValues };
+    }
+  }
+
+  // 3. Process board_id if provided
+  if (additionalFilters.board_id) {
+    finalQuery.board_id = additionalFilters.board_id;
+  }
+
+  // 4. Process program_id if provided
+  if (additionalFilters.program_id) {
+    finalQuery.program_id = additionalFilters.program_id;
+  }
+
+  // 5. Add base filters for current edition and live status
+  finalQuery.is_current_edition = { $ne: false };
+  finalQuery.is_live = { $ne: false };
+
+  // For unauthenticated users, add public filter
+  if (!user) {
+    finalQuery.is_public = true;
+  }
+
+  // Merge any other filters
+  const { subject_slug, grade, board_id, program_id, ...restFilters } = additionalFilters;
+  Object.assign(finalQuery, restFilters);
+
+  console.log('[BOOK SERVICE] Clean query filter:', JSON.stringify(finalQuery));
+
+  // Execute query with population
+  let books = await Book.find(finalQuery)
+    .populate({ path: 'board_id', select: 'name short_code slug' })
+    .populate({ path: 'program_id', select: 'name slug' })
+    .lean();
+
+  console.log(`[BOOK SERVICE] Found ${books.length} books via find()`);
+
+  // If no books found with strict filters, try fallback by subject only
+  if (books.length === 0 && finalQuery.subject_slug) {
+    const subjectOnlyQuery = { 
+      subject_slug: finalQuery.subject_slug,
       is_current_edition: { $ne: false },
-      is_live: true,
-      is_public: true
+      is_live: { $ne: false }
     };
+    if (!user) subjectOnlyQuery.is_public = true;
+    
+    books = await Book.find(subjectOnlyQuery)
+      .populate({ path: 'board_id', select: 'name short_code slug' })
+      .populate({ path: 'program_id', select: 'name slug' })
+      .lean();
+    
+    console.log(`[BOOK SERVICE] Fallback found ${books.length} books by subject only`);
   }
 
-  // Extract special operators that need aggregation handling
-  const { grade, subject_slug, ...restFilters } = additionalFilters;
-  
-  // Merge regular filters
-  filter = { ...filter, ...restFilters };
-  
-  // Handle subject_slug with regex - convert RegExp to $regex object for MongoDB aggregation
-  if (subject_slug instanceof RegExp) {
-    filter.subject_slug = { $regex: subject_slug.source, $options: 'i' };
-  } else if (subject_slug) {
-    filter.subject_slug = subject_slug;
-  }
-  
-  // Handle grade with $in operator - MongoDB $in works directly in match stage
-  if (grade?.$in) {
-    filter.grade = grade.$in;
-  } else if (grade) {
-    filter.grade = grade;
-  }
-
-  console.log('[BOOK SERVICE] Query filter:', JSON.stringify(filter));
-
-  const books = await Book.aggregate([
-    { $match: filter },
-    { $lookup: { from: 'chapters', localField: '_id', foreignField: 'book_id', as: 'chapters' } },
-    { $lookup: { from: 'topics', localField: '_id', foreignField: 'book_id', as: 'topics' } },
-    {
-      $addFields: {
-        chapter_count: { $size: '$chapters' },
-        total_topics: { $size: '$topics' }
-      }
-    },
-    {
-      $project: {
-        topics: 0,
-        'chapters.content': 0, 
-        'chapters.raw_text': 0
-      }
-    },
-    { $sort: { is_current_edition: -1, is_live: -1, edition_year: -1, title: 1 } }
-  ]);
-
-  console.log(`[BOOK SERVICE] Found ${books.length} books`);
-
-  // Manually populate board_id and program_id since aggregate doesn't do it automatically like populate()
-  const populatedBooks = await Promise.all(books.map(async (book) => {
-    if (book.board_id && mongoose.Types.ObjectId.isValid(book.board_id)) {
-      book.board_id = await Board.findById(book.board_id).select('name short_code slug').lean();
-    }
-    if (book.program_id && mongoose.Types.ObjectId.isValid(book.program_id)) {
-      book.program_id = await Program.findById(book.program_id).select('name slug').lean();
-    }
+  // Enrich with chapter/topic counts via aggregation for each book
+  const enrichedBooks = await Promise.all(books.map(async (book) => {
+    const chapterCount = await Chapter.countDocuments({ book_id: book._id });
+    book.chapter_count = chapterCount;
     return book;
   }));
 
-  console.log('[BOOK SERVICE] Populated books sample:', JSON.stringify(populatedBooks[0]?.board_id));
+  console.log('[BOOK SERVICE] Populated books sample board:', JSON.stringify(enrichedBooks[0]?.board_id));
 
   // Sanitize for unauthenticated users
   if (!user) {
-    return populatedBooks.map(sanitizeBookForPublic);
+    return enrichedBooks.map(sanitizeBookForPublic);
   }
 
-  return populatedBooks;
+  return enrichedBooks;
 }
 
 /**
