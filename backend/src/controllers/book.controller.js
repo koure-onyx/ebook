@@ -186,7 +186,15 @@ export async function getBookBySlug(req, res, next) {
  */
 export async function getBookChapters(req, res, next) {
   try {
-    const { bookId } = req.params;
+    // Router uses :id parameter, extract it correctly
+    const bookId = req.params.id || req.params.bookId;
+    
+    console.log(`[BOOK CONTROLLER] getBookChapters called with bookId: ${bookId}`);
+    
+    if (!bookId) {
+      return res.status(400).json(error('Book ID parameter is required', 'VALIDATION_ERROR'));
+    }
+    // OLD: const { bookId } = req.params;
     let chapters = await bookService.getBookChapters(bookId);
     
     // Resilient fallback: if no chapters found by bookId, try searching by subject_slug
