@@ -3,7 +3,7 @@ import { getBookBySubjectServer, getBooksServer } from '@/lib/api/client';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { BookChapterIndex } from '@/components/reader/BookChapterIndex';
-import { TopicLevelReader } from '@/components/reader/TopicLevelReader';
+import TopicLevelReader from '@/components/reader/TopicLevelReader';
 import { ChapterReader } from '@/components/reader/ChapterReader';
 
 function normalizeSegment(value: string | null | undefined) {
