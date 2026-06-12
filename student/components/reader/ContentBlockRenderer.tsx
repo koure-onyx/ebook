@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Beaker, Lightbulb, Info, CheckCircle, AlertCircle, BookOpen } from 'lucide-react';
 import QuranVerseRenderer from '@/components/QuranVerseRenderer';
 import { InlineMath, BlockMath } from 'react-katex';
@@ -14,6 +14,12 @@ function blockHtmlText(block: any): string {
  * MCQTemplate Component - Renders Multiple Choice Questions from content blocks
  */
 const MCQTemplate: React.FC<{ block: any }> = ({ block }) => {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const questionText = block.question || block.text || '';
   const options = block.options || [];
   const correctAnswer = block.correct_answer || block.correctAnswer || null;
