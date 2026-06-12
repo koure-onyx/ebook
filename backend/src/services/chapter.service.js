@@ -37,11 +37,45 @@ export const getChapterBySlug = async (slug, bookId) => {
 /**
  * Get all chapters for a book, sorted by display_order and chapter_number
  * Response matches DeepSeek schema exactly with student_learning_outcomes, chapter_summary
+ * Implements dual-lookup strategy: first by book_id, then falls back to subject_slug/book_slug
  */
 export const getChaptersByBook = async (bookId) => {
-  const chapters = await Chapter.find({ book_id: bookId })
+  // Step A: Attempt standard lookup by Book Object ID
+  let chapters = await Chapter.find({ book_id: bookId })
     .sort({ display_order: 1, chapter_number: 1 })
     .lean();
+
+  // Step B: Fallback Lookup if the array comes back empty
+  if (!chapters || chapters.length === 0) {
+    try {
+      // Locate the parent book entry first to pull its text subject_slug
+      const parentBook = await Book.findById(bookId).select('subject_slug slug').lean();
+      
+      if (parentBook && (parentBook.subject_slug || parentBook.slug)) {
+        // Cross-reference chapters matching that text subject string or book_slug
+        const fallbackQuery = {
+          $or: []
+        };
+        
+        if (parentBook.subject_slug) {
+          fallbackQuery.$or.push({ subject_slug: parentBook.subject_slug });
+        }
+        if (parentBook.slug) {
+          fallbackQuery.$or.push({ book_slug: parentBook.slug });
+        }
+        
+        const fallbackChapters = await Chapter.find(fallbackQuery)
+          .sort({ display_order: 1, chapter_number: 1 })
+          .lean();
+        
+        if (fallbackChapters && fallbackChapters.length > 0) {
+          chapters = fallbackChapters;
+        }
+      }
+    } catch (err) {
+      console.error('[CHAPTER SERVICE] Fallback lookup failed:', err.message);
+    }
+  }
 
   // Ensure all DeepSeek schema fields are present
   return chapters.map(chapter => ({

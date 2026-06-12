@@ -255,6 +255,8 @@ export async function ingestBook(deepseekJson, adminUserId) {
         chapter_number: chapter.chapter_number,
         chapter_number_display: chapter.chapter_number_display || `Chapter ${chapter.chapter_number}`,
         book_id: book._id,
+        book_slug: book.slug,  // Store book slug for fallback lookups
+        subject_slug: book.subject_slug,  // Store subject slug for fallback lookups
         program_id: program._id,
         board_id: board._id,
         student_learning_outcomes: chapter.student_learning_outcomes,
@@ -268,6 +270,8 @@ export async function ingestBook(deepseekJson, adminUserId) {
     } else {
       // Update chapter metadata
       chapterDoc.title = chapter.title;
+      chapterDoc.book_slug = book.slug;  // Keep book_slug in sync
+      chapterDoc.subject_slug = book.subject_slug;  // Keep subject_slug in sync
       chapterDoc.student_learning_outcomes = chapter.student_learning_outcomes;
       chapterDoc.summary = chapter.chapter_summary;
       chapterDoc.seo = chapter.seo;
